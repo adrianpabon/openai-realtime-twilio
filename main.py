@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import JSONResponse
-from realtime_config import call_accept, response_create
+from realtime_config import choose_random_assistant, response_create
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -217,6 +217,7 @@ async def webhook(request: Request):
             
             # Aceptar la llamada
             async with httpx.AsyncClient() as http_client:
+                call_accept = choose_random_assistant()
                 accept_url = f"https://api.openai.com/v1/realtime/calls/{call_id}/accept"
                 
                 resp = await http_client.post(
