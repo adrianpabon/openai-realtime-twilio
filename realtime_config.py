@@ -2,26 +2,6 @@ import datetime
 import locale
 from functions import tools
 
-# Configuración de la llamada
-call_accept = {
-    "instructions": "Eres un asistente de programación bien chingon que le gusta hablar con mexicanismos y humor. Eres de paso un experto en cualquier tema de programación y tecnología.",
-    "type": "realtime",
-    "model": "gpt-realtime",
-    "audio": {
-        "output": {"voice": "ash"}
-    },
-    "tools": tools
-}
-
-WELCOME_GREETING = "Gracias por llamar mi chingon preferido, ¿en qué te puedo ayudar? y sin decir mamadas oiste"
-
-response_create = {
-    "type": "response.create",
-    "response": {
-        "instructions": f"Saluda al usuario diciendo: {WELCOME_GREETING}"
-    }
-}
-
 # Intentar configurar locale en español, con fallback
 try:
     locale.setlocale(locale.LC_TIME, 'es_CO.UTF-8')
@@ -37,6 +17,11 @@ except locale.Error:
             pass
 
 current_datetime_colombia = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-5))).strftime("%A %Y-%m-%d %H:%M:%S")
+
+
+
+
+
 
 system_prompt = f"""  
 # Rol y Objetivo
@@ -341,3 +326,24 @@ Luego llama a la herramienta: `escalate_to_human` (si está disponible)
 Para las citas es importante que sepas que la fecha y hora actual en Colombia es: {current_datetime_colombia}  
 
 """
+
+# Configuración de la llamada
+call_accept = {
+    "instructions": system_prompt,
+    "type": "realtime",
+    "model": "gpt-realtime",
+    "audio": {
+        "output": {"voice": "ash"}
+    },
+    "tools": tools
+}
+
+WELCOME_GREETING = "Gracias por llamar a Laboratorios ACME. ¿En qué puedo ayudarte hoy?"
+
+response_create = {
+    "type": "response.create",
+    "response": {
+        "instructions": f"Saluda al usuario diciendo: {WELCOME_GREETING}"
+    }
+}
+
