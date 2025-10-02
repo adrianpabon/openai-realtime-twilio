@@ -105,38 +105,38 @@ async def webhook(request: Request):
 
             print(f"webhook received: {event_type}")
             
-            # if not call_id:
-            #     raise HTTPException(status_code=400, detail="Missing call_id")
+            if not call_id:
+                raise HTTPException(status_code=400, detail="Missing call_id")
             
-            # print(f"Incoming call: {call_id}")
+            print(f"Incoming call: {call_id}")
             
-        #     # Aceptar la llamada
-        #     async with httpx.AsyncClient() as http_client:
-        #         accept_url = f"https://api.openai.com/v1/realtime/calls/{call_id}/accept"
+            # Aceptar la llamada
+            async with httpx.AsyncClient() as http_client:
+                accept_url = f"https://api.openai.com/v1/realtime/calls/{call_id}/accept"
                 
-        #         resp = await http_client.post(
-        #             accept_url,
-        #             headers={
-        #                 "Authorization": f"Bearer {OPENAI_API_KEY}",
-        #                 "Content-Type": "application/json"
-        #             },
-        #             json=call_accept
-        #         )
+                resp = await http_client.post(
+                    accept_url,
+                    headers={
+                        "Authorization": f"Bearer {OPENAI_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json=call_accept
+                )
                 
-        #         if not resp.is_success:
-        #             error_text = resp.text
-        #             print(f"ACCEPT failed: {resp.status_code} {error_text}")
-        #             raise HTTPException(status_code=500, detail="Accept failed")
+                if not resp.is_success:
+                    error_text = resp.text
+                    print(f"ACCEPT failed: {resp.status_code} {error_text}")
+                    raise HTTPException(status_code=500, detail="Accept failed")
             
-        #     # Conectar WebSocket después de un pequeño delay
-        #     wss_url = f"wss://api.openai.com/v1/realtime?call_id={call_id}"
-        #     asyncio.create_task(connect_with_delay(wss_url, 0))
+            # Conectar WebSocket después de un pequeño delay
+            wss_url = f"wss://api.openai.com/v1/realtime?call_id={call_id}"
+            asyncio.create_task(connect_with_delay(wss_url, 0))
             
-        #     # Responder al webhook
-        #     return Response(
-        #         status_code=200,
-        #         headers={"Authorization": f"Bearer {OPENAI_API_KEY}"}
-        #     )
+            # Responder al webhook
+            return Response(
+                status_code=200,
+                headers={"Authorization": f"Bearer {OPENAI_API_KEY}"}
+            )
         
         # # Otros tipos de eventos
         return Response(status_code=200)
