@@ -21,7 +21,20 @@ response_create = {
         "instructions": f"Saluda al usuario diciendo: {WELCOME_GREETING}"
     }
 }
-locale.setlocale(locale.LC_TIME, 'es_CO.UTF-8')
+
+# Intentar configurar locale en español, con fallback
+try:
+    locale.setlocale(locale.LC_TIME, 'es_CO.UTF-8')
+except locale.Error:
+    try:
+        locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+    except locale.Error:
+        try:
+            locale.setlocale(locale.LC_TIME, 'Spanish_Colombia.1252')
+        except locale.Error:
+            # Si ninguno funciona, usar locale por defecto
+            print("⚠️ Warning: Spanish locale not available, using default locale")
+            pass
 
 current_datetime_colombia = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-5))).strftime("%A %Y-%m-%d %H:%M:%S")
 
