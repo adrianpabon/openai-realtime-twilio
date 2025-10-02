@@ -143,7 +143,7 @@ async def webhook(request: Request):
         
     except Exception as e:
         error_msg = str(getattr(e, "message", str(e)))
-        
+        print(f"Error processing webhook: {error_msg}")
         # Verificar si es error de firma inválida
         if "InvalidWebhookSignatureError" in str(type(e).__name__) or \
            "invalid" in error_msg.lower():
