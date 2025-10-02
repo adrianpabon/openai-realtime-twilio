@@ -8,6 +8,7 @@ import websockets
 import json
 import httpx
 
+
 load_dotenv()
 
 app = FastAPI()
@@ -28,29 +29,75 @@ client = OpenAI(
 
 # Configuración de la llamada
 call_accept = {
-    "instructions": "You are a support agent. Speak in English unless asked otherwise.",
+    "instructions": "Eres un asistente de programación bien chingon que le gusta hablar con mexicanismos y humor. Eres de paso un experto en cualquier tema de programación y tecnología.",
     "type": "realtime",
     "model": "gpt-realtime",
     "audio": {
-        "output": {"voice": "alloy"}
+        "output": {"voice": "ash"}
     }
 }
 
-WELCOME_GREETING = "Thank you for calling, how can I help you?"
+WELCOME_GREETING = "Gracias por llamar mi chingon preferido, ¿en qué te puedo ayudar? y sin decir mamadas oiste"
 
 response_create = {
     "type": "response.create",
     "response": {
-        "instructions": f"Say to the user: {WELCOME_GREETING}"
+        "instructions": f"Saluda al usuario diciendo: {WELCOME_GREETING}"
     }
 }
 
 REALTIME_INCOMING_CALL = "realtime.call.incoming"
 
 
-# Tarea WebSocket
+# Manejadores de eventos WebSocket
+async def handle_websocket_message(message_data: dict, ws) -> None:
+    """Maneja diferentes tipos de mensajes del WebSocket"""
+    message_type = message_data.get("type", "")
+    
+    # Manejo específico por tipo de mensaje
+    if message_type == "session.created":
+        print("✅ Session created successfully")
+        
+    elif message_type == "response.created":
+        print("🎯 Response created")
+        
+    elif message_type == "response.done":
+        print("✅ Response completed")
+        
+    elif message_type == "conversation.item.created":
+        print("💬 Conversation item created")
+        
+    elif message_type == "input_audio_buffer.speech_started":
+        print("🎤 User started speaking")
+        
+    elif message_type == "input_audio_buffer.speech_stopped":
+        print("🔇 User stopped speaking")
+        
+    elif message_type == "response.audio.delta":
+        # Audio chunks del asistente
+        print("🔊 Receiving audio chunk")
+        
+    elif message_type == "response.audio_transcript.delta":
+        # Transcripción del audio del asistente
+        transcript = message_data.get("delta", "")
+        if transcript:
+            print(f"🗣️ Assistant: {transcript}")
+            
+    elif message_type == "conversation.item.input_audio_transcription.completed":
+        # Transcripción completada del usuario
+        transcript = message_data.get("transcript", "")
+        print(f"👤 User said: {transcript}")
+        
+    elif message_type == "error":
+        error = message_data.get("error", {})
+        print(f"❌ WebSocket error: {error}")
+        
+    else:
+        print(f"📨 Unhandled message type: {message_type}")
+
+# Tarea WebSocket mejorada
 async def websocket_task(uri: str) -> None:
-    """Conecta al WebSocket de OpenAI Realtime API"""
+    """Conecta al WebSocket de OpenAI Realtime API con manejo de eventos mejorado"""
     try:
         async with websockets.connect(
             uri,
@@ -59,18 +106,30 @@ async def websocket_task(uri: str) -> None:
                 "origin": "https://api.openai.com"
             }
         ) as ws:
-            print(f"WS OPEN: {uri}")
+            print(f"🔌 WS OPEN: {uri}")
             
             # Enviar el saludo inicial
             await ws.send(json.dumps(response_create))
+            print("📤 Sent initial greeting command")
             
             # Escuchar mensajes
             async for message in ws:
-                text = message if isinstance(message, str) else message.decode()
-                print(f"Received from WebSocket: {text}")
+                try:
+                    text = message if isinstance(message, str) else message.decode()
+                    message_data = json.loads(text)
+                    
+                    # Manejo específico de eventos
+                    await handle_websocket_message(message_data, ws)
+                    
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ Failed to parse JSON message: {text}")
+                except Exception as e:
+                    print(f"⚠️ Error handling message: {e}")
                 
+    except websockets.exceptions.ConnectionClosed as e:
+        print(f"🔌 WebSocket connection closed: {e.code} - {e.reason}")
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        print(f"❌ WebSocket error: {e}")
 
 
 async def connect_with_delay(sip_wss_url: str, delay: int = 0) -> None:
