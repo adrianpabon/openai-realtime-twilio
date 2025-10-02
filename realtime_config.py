@@ -32,7 +32,7 @@ def choose_random_assistant():
             },
             {
                 "name": "Juliana",
-                "voice": "alloy",
+                "voice": "shimmer",
                 "article": "la"
             }
         ]
