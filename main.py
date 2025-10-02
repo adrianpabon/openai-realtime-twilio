@@ -83,7 +83,7 @@ async def connect_with_delay(sip_wss_url: str, delay: int = 0) -> None:
 
 
 # Endpoint principal para webhooks
-@app.post("/webhook")
+@app.post("webhook")
 async def webhook(request: Request):
     """Maneja los webhooks de OpenAI"""
     try:
