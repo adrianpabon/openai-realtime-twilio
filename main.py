@@ -105,10 +105,10 @@ async def webhook(request: Request):
 
             print(f"webhook received: {event_type}")
             
-            if not call_id:
-                raise HTTPException(status_code=400, detail="Missing call_id")
+            # if not call_id:
+            #     raise HTTPException(status_code=400, detail="Missing call_id")
             
-            print(f"Incoming call: {call_id}")
+            # print(f"Incoming call: {call_id}")
             
         #     # Aceptar la llamada
         #     async with httpx.AsyncClient() as http_client:
