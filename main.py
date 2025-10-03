@@ -8,6 +8,7 @@ import asyncio
 import websockets
 import json
 import httpx
+import threading
 from function_manager import FunctionManager
 
 
@@ -141,10 +142,13 @@ async def handle_websocket_message(message_data: dict, ws, function_manager: Fun
         print(f"📨 Unhandled message type: {message_type}")
 
 # Tarea WebSocket mejorada
-async def websocket_task(uri: str) -> None:
-    """Conecta al WebSocket de OpenAI Realtime API con manejo de eventos mejorado"""
+async def websocket_task_async(call_id: str) -> None:
+    """Conecta al WebSocket de OpenAI Realtime API"""
+    uri = f"wss://api.openai.com/v1/realtime?call_id={call_id}"
+    
     try:
         function_manager = FunctionManager()
+        
         async with websockets.connect(
             uri,
             additional_headers={
@@ -154,17 +158,14 @@ async def websocket_task(uri: str) -> None:
         ) as ws:
             print(f"🔌 WS OPEN: {uri}")
             
-            # Enviar el saludo inicial
             await ws.send(json.dumps(response_create))
             print("📤 Sent initial greeting command")
             
-            # Escuchar mensajes
             async for message in ws:
                 try:
                     text = message if isinstance(message, str) else message.decode()
                     message_data = json.loads(text)
                     
-                    # Manejo específico de eventos
                     await handle_websocket_message(message_data, ws, function_manager)
                     
                 except json.JSONDecodeError as e:
@@ -177,14 +178,6 @@ async def websocket_task(uri: str) -> None:
     except Exception as e:
         print(f"❌ WebSocket error: {e}")
 
-
-async def connect_with_delay(sip_wss_url: str, delay: int = 0) -> None:
-    """Conecta al WebSocket con un delay opcional"""
-    try:
-        await asyncio.sleep(delay)
-        await websocket_task(sip_wss_url)
-    except Exception as e:
-        print(f"Error connecting web socket: {e}")
 
 
 # Endpoint principal para webhooks
@@ -207,6 +200,10 @@ async def webhook(request: Request):
         # Manejar llamada entrante
         if event_type == REALTIME_INCOMING_CALL:
             call_id = getattr(getattr(event, "data", None), "call_id", None)
+
+            sip_headers = getattr(getattr(event, "data", None), "sip_headers", None)
+
+            print(f"sip_headers: {sip_headers}")
 
             print(f"webhook received: {event_type}")
             
@@ -235,8 +232,11 @@ async def webhook(request: Request):
                     raise HTTPException(status_code=500, detail="Accept failed")
             
             # Conectar WebSocket después de un pequeño delay
-            wss_url = f"wss://api.openai.com/v1/realtime?call_id={call_id}"
-            asyncio.create_task(connect_with_delay(wss_url, 0))
+            threading.Thread(
+                target=lambda: asyncio.run(websocket_task_async(call_id)),
+                daemon=True,
+                name=f"ws_thread_{call_id}"
+            ).start()
             
             # Responder al webhook
             return Response(
