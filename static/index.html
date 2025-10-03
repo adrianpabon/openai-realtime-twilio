@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo - Laboratorios ACME</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .phone-simulator {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator.disconnected {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .status-indicator.connecting {
+            background: #fff3cd;
+            color: #856404;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .status-indicator.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-indicator.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .call-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 32px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin: 20px 0;
+        }
+
+        .call-button.start {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .call-button.start:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .call-button.end {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .call-button.end:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .call-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .call-button:disabled:hover {
+            transform: none;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .instructions strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin: 5px 0;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        #audioStatus {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Laboratorios ACME</h1>
+            <p>Demo del Asistente Virtual por Voz (WebRTC)</p>
+        </div>
+
+        <div class="phone-simulator">
+            <div id="status" class="status-indicator disconnected">
+                ⚫ Desconectado
+            </div>
+
+            <div>
+                <button id="callButton" class="call-button start" onclick="toggleCall()">
+                    📞
+                </button>
+            </div>
+
+            <div id="audioStatus"></div>
+
+            <div id="errorMessage" style="display: none;"></div>
+
+            <div class="instructions">
+                <strong>📝 Instrucciones:</strong>
+                <ul>
+                    <li>Haz clic en el botón 📞 para iniciar la llamada</li>
+                    <li>Permite el acceso al micrófono cuando lo solicite</li>
+                    <li>Habla naturalmente con el asistente</li>
+                    <li>Usuarios de prueba: Juan Pérez, María García, Carlos López</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio element para reproducir la respuesta de OpenAI -->
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script>
+        let peerConnection = null;
+        let dataChannel = null;
+        let isConnected = false;
+        let isConnecting = false;
+
+        const statusElement = document.getElementById('status');
+        const callButton = document.getElementById('callButton');
+        const audioStatusElement = document.getElementById('audioStatus');
+        const errorMessageElement = document.getElementById('errorMessage');
+        const remoteAudio = document.getElementById('remoteAudio');
+
+        function updateStatus(status, text) {
+            statusElement.className = `status-indicator ${status}`;
+            const icons = {
+                'disconnected': '⚫',
+                'connecting': '🟡',
+                'connected': '🟢',
+                'error': '🔴'
+            };
+            statusElement.textContent = `${icons[status]} ${text}`;
+        }
+
+        function showError(message) {
+            errorMessageElement.className = 'error-message';
+            errorMessageElement.textContent = `❌ Error: ${message}`;
+            errorMessageElement.style.display = 'block';
+        }
+
+        function hideError() {
+            errorMessageElement.style.display = 'none';
+        }
+
+        async function startCall() {
+            if (isConnecting || isConnected) {
+                console.log('⚠️ Ya hay una conexión activa');
+                return;
+            }
+
+            isConnecting = true;
+
+            try {
+                hideError();
+                updateStatus('connecting', 'Conectando...');
+                callButton.disabled = true;
+                audioStatusElement.textContent = '⏳ Inicializando...';
+
+                // 1. Obtener token ephemeral del servidor
+                console.log('🔑 Solicitando sesión ephemeral...');
+                const sessionResponse = await fetch('/api/session', {
+                    method: 'POST'
+                });
+
+                if (!sessionResponse.ok) {
+                    throw new Error('No se pudo crear la sesión');
+                }
+
+                const session = await sessionResponse.json();
+                console.log('✅ Sesión ephemeral recibida');
+
+                // 2. Configurar WebRTC
+                peerConnection = new RTCPeerConnection();
+
+                // 3. Agregar audio local (micrófono)
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
+                
+                stream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, stream);
+                });
+                console.log('🎤 Micrófono agregado');
+
+                // 4. Manejar audio entrante (respuesta de OpenAI)
+                peerConnection.ontrack = (event) => {
+                    console.log('🔊 Recibiendo audio de OpenAI');
+                    remoteAudio.srcObject = event.streams[0];
+                };
+
+                // 5. Data channel para eventos
+                dataChannel = peerConnection.createDataChannel('oai-events');
+                
+                dataChannel.onopen = () => {
+                    console.log('✅ Canal de datos abierto');
+                    isConnecting = false;
+                    isConnected = true;
+                    updateStatus('connected', 'En llamada');
+                    callButton.className = 'call-button end';
+                    callButton.textContent = '📵';
+                    callButton.disabled = false;
+                    audioStatusElement.textContent = '👂 Escuchando...';
+                };
+
+                dataChannel.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleServerEvent(message);
+                    } catch (e) {
+                        console.warn('Mensaje no JSON:', event.data);
+                    }
+                };
+
+                dataChannel.onerror = (error) => {
+                    console.error('❌ Error en data channel:', error);
+                };
+
+                dataChannel.onclose = () => {
+                    console.log('🔌 Canal de datos cerrado');
+                    endCall();
+                };
+
+                // 6. Crear offer
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                // 7. Enviar offer a OpenAI y recibir answer
+                console.log('📤 Enviando offer a OpenAI...');
+                
+                // Construir URL completa de OpenAI con el ephemeral token
+                const ephemeralKey = session.client_secret?.value || session.client_secret;
+                const sdpUrl = `https://api.openai.com/v1/realtime?model=gpt-realtime-2025-08-28`;
+                
+                console.log('🔑 Ephemeral key:', ephemeralKey);
+                console.log('📍 URL:', sdpUrl);
+                
+                const sdpResponse = await fetch(sdpUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${ephemeralKey}`,
+                        'Content-Type': 'application/sdp'
+                    },
+                    body: offer.sdp
+                });
+
+                console.log('✅ SDP Response status:', sdpResponse.status);
+                
+                if (!sdpResponse.ok) {
+                    const errorText = await sdpResponse.text();
+                    console.error('❌ SDP Error:', errorText);
+                    throw new Error(`No se pudo establecer la conexión WebRTC: ${sdpResponse.status}`);
+                }
+
+                const answerSdp = await sdpResponse.text();
+                console.log('✅ Answer SDP recibido, longitud:', answerSdp.length);
+                
+                await peerConnection.setRemoteDescription({
+                    type: 'answer',
+                    sdp: answerSdp
+                });
+
+                console.log('🎉 Conexión WebRTC establecida completamente');
+
+            } catch (error) {
+                console.error('❌ Error iniciando llamada:', error);
+                showError(error.message || 'No se pudo iniciar la llamada');
+                updateStatus('error', 'Error');
+                callButton.disabled = false;
+                callButton.className = 'call-button start';
+                isConnecting = false;
+                isConnected = false;
+            }
+        }
+
+        function handleServerEvent(message) {
+            switch (message.type) {
+                case 'session.created':
+                    console.log('✅ Sesión creada');
+                    break;
+
+                case 'input_audio_buffer.speech_started':
+                    audioStatusElement.textContent = '🎤 Escuchando...';
+                    break;
+
+                case 'input_audio_buffer.speech_stopped':
+                    audioStatusElement.textContent = '⏳ Procesando...';
+                    break;
+
+                case 'response.done':
+                    audioStatusElement.textContent = '👂 Escuchando...';
+                    console.log('✅ Respuesta completada');
+                    break;
+
+                case 'error':
+                    console.error('❌ Error:', message.error);
+                    showError(message.error.message || 'Error del servidor');
+                    break;
+
+                default:
+                    // Silenciar otros eventos
+                    break;
+            }
+        }
+
+        function endCall() {
+            console.log('🔌 Cerrando llamada...');
+
+            isConnected = false;
+            isConnecting = false;
+
+            if (dataChannel) {
+                try {
+                    dataChannel.close();
+                } catch (e) {
+                    console.warn('Error cerrando data channel:', e);
+                }
+                dataChannel = null;
+            }
+
+            if (peerConnection) {
+                try {
+                    peerConnection.close();
+                } catch (e) {
+                    console.warn('Error cerrando peer connection:', e);
+                }
+                peerConnection = null;
+            }
+
+            updateStatus('disconnected', 'Desconectado');
+            callButton.className = 'call-button start';
+            callButton.textContent = '📞';
+            callButton.disabled = false;
+            audioStatusElement.textContent = '';
+
+            console.log('✅ Llamada cerrada');
+        }
+
+        async function toggleCall() {
+            if (callButton.disabled && !isConnected) {
+                console.log('⚠️ Botón deshabilitado');
+                return;
+            }
+
+            if (isConnected || isConnecting) {
+                endCall();
+            } else {
+                await startCall();
+            }
+        }
+
+        // Cleanup al cerrar la página
+        window.addEventListener('beforeunload', () => {
+            if (isConnected) {
+                endCall();
+            }
+        });
+    </script>
+</body>
+</html>
+

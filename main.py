@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, Response, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from realtime_config import choose_random_assistant, response_create
 import os
 from dotenv import load_dotenv
@@ -10,25 +11,35 @@ import json
 import httpx
 import threading
 from function_manager import FunctionManager
+from typing import Dict
 
 
 load_dotenv()
 
 app = FastAPI()
 
+# Montar carpeta de archivos estáticos
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Configuración
 PORT = int(os.getenv("PORT", 5001))
 WEBHOOK_SECRET = os.getenv("OPENAI_WEBHOOK_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-if not WEBHOOK_SECRET or not OPENAI_API_KEY:
-    raise ValueError("Missing OPENAI_WEBHOOK_SECRET or OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("Missing OPENAI_API_KEY - Required for both Demo Web and Twilio")
 
-# Cliente OpenAI
-client = OpenAI(
-    api_key=OPENAI_API_KEY,
-    webhook_secret=WEBHOOK_SECRET
-)
+# Cliente OpenAI (solo si hay webhook secret configurado)
+client = None
+if WEBHOOK_SECRET:
+    client = OpenAI(
+        api_key=OPENAI_API_KEY,
+        webhook_secret=WEBHOOK_SECRET
+    )
+    print("✅ Webhook validation enabled (Twilio mode)")
+else:
+    print("⚠️  Webhook secret not configured - Demo Web only (Twilio webhooks disabled)")
 
 
 
@@ -151,9 +162,9 @@ async def websocket_task_async(call_id: str) -> None:
         
         async with websockets.connect(
             uri,
-            additional_headers={
+            extra_headers={
                 "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "origin": "https://api.openai.com"
+                "OpenAI-Beta": "realtime=v1"
             }
         ) as ws:
             print(f"🔌 WS OPEN: {uri}")
@@ -184,6 +195,17 @@ async def websocket_task_async(call_id: str) -> None:
 @app.post("/webhook")
 async def webhook(request: Request):
     """Maneja los webhooks de OpenAI"""
+    
+    # Verificar que el webhook secret está configurado
+    if not WEBHOOK_SECRET or not client:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Webhook endpoint not available",
+                "message": "OPENAI_WEBHOOK_SECRET not configured. This endpoint is only for Twilio integration."
+            }
+        )
+    
     try:
         # Leer el body raw
         body = await request.body()
@@ -269,6 +291,238 @@ async def webhook(request: Request):
 async def health():
     """Health check endpoint""" 
     return {"status": "ok"}
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    """Sirve la página principal del demo"""
+    static_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    
+    if not os.path.exists(static_path):
+        return HTMLResponse(
+            content="<h1>Error: index.html no encontrado</h1><p>Asegúrate de que existe la carpeta 'static' con el archivo 'index.html'</p>",
+            status_code=404
+        )
+    
+    # Leer y servir el HTML
+    with open(static_path, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    
+    return HTMLResponse(content=html_content)
+
+
+@app.get("/api/config")
+async def get_config():
+    """Endpoint para obtener configuración del cliente (sin exponer secrets sensibles)"""
+    return {
+        "has_api_key": bool(OPENAI_API_KEY),
+        "has_webhook_secret": bool(WEBHOOK_SECRET),
+        "port": PORT,
+        "modes": {
+            "demo_web": bool(OPENAI_API_KEY),
+            "twilio_webhooks": bool(WEBHOOK_SECRET and OPENAI_API_KEY)
+        }
+    }
+
+
+@app.post("/api/session")
+async def create_session():
+    """
+    Crea una sesión ephemeral de OpenAI Realtime API para WebRTC
+    Esto permite que el cliente se conecte directamente con OpenAI de forma segura
+    """
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+    
+    try:
+        # Obtener configuración del asistente
+        assistant_config = choose_random_assistant()
+        
+        # Crear sesión ephemeral con OpenAI
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.post(
+                "https://api.openai.com/v1/realtime/sessions",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-realtime-2025-08-28",
+                    "voice": assistant_config["audio"]["output"]["voice"],
+                    "instructions": assistant_config["instructions"],
+                    "modalities": ["text", "audio"],
+                    "input_audio_format": "pcm16",
+                    "output_audio_format": "pcm16",
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": 0.5,
+                        "prefix_padding_ms": 300,
+                        "silence_duration_ms": 700
+                    },
+                    "temperature": 0.9,
+                    "max_response_output_tokens": 4096,
+                    "tools": assistant_config["tools"]
+                }
+            )
+            
+            if response.status_code != 200:
+                error_text = response.text
+                print(f"❌ Error creando sesión: {response.status_code} {error_text}")
+                raise HTTPException(status_code=500, detail=f"Failed to create session: {error_text}")
+            
+            session_data = response.json()
+            print(f"✅ Sesión ephemeral creada para WebRTC con voz {assistant_config['audio']['output']['voice']}")
+            
+            return session_data
+            
+    except Exception as e:
+        print(f"❌ Error en /api/session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.websocket("/ws/realtime")
+async def websocket_proxy(websocket: WebSocket):
+    """
+    WebSocket proxy que conecta el navegador con OpenAI Realtime API
+    Maneja la autenticación de forma segura en el servidor
+    """
+    await websocket.accept()
+    print("🔌 Cliente conectado al WebSocket proxy")
+    
+    openai_ws = None
+    
+    try:
+        # Conectar a OpenAI Realtime API
+        uri = "wss://api.openai.com/v1/realtime?model=gpt-realtime-2025-08-28"
+        
+        async with websockets.connect(
+            uri,
+            extra_headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "OpenAI-Beta": "realtime=v1"
+            }
+        ) as openai_ws:
+            print("✅ Conectado a OpenAI Realtime API")
+            
+            # Obtener configuración completa del asistente
+            assistant_config = choose_random_assistant()
+            print(f"👤 Asistente seleccionado: {assistant_config.get('type', 'realtime')} con voz {assistant_config['audio']['output']['voice']}")
+            
+            # Enviar configuración inicial con toda la personalidad
+            session_config = {
+                "type": "session.update",
+                "session": {
+                    "modalities": ["text", "audio"],  # OpenAI requiere ambos
+                    "instructions": assistant_config["instructions"],  # Prompt completo con personalidad
+                    "voice": assistant_config["audio"]["output"]["voice"],  # Voz aleatoria (ash o shimmer)
+                    "input_audio_format": "pcm16",
+                    "output_audio_format": "pcm16",
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": 0.5,
+                        "prefix_padding_ms": 300,
+                        "silence_duration_ms": 700
+                    },
+                    "temperature": 0.9,
+                    "max_response_output_tokens": 4096,
+                    "tools": assistant_config["tools"]  # Funciones disponibles
+                }
+            }
+            await openai_ws.send(json.dumps(session_config))
+            print("📤 Configuración de sesión enviada")
+            
+            # Inicializar el manejador de funciones
+            function_manager = FunctionManager()
+            
+            # Crear tareas para manejar mensajes en ambas direcciones
+            async def forward_to_openai():
+                """Reenvía mensajes del cliente al servidor OpenAI"""
+                try:
+                    while True:
+                        data = await websocket.receive_text()
+                        await openai_ws.send(data)
+                except WebSocketDisconnect:
+                    print("🔌 Cliente desconectado")
+                except Exception as e:
+                    print(f"❌ Error reenviando a OpenAI: {e}")
+            
+            async def forward_to_client():
+                """Reenvía mensajes de OpenAI al cliente y ejecuta funciones"""
+                try:
+                    async for message in openai_ws:
+                        # Parsear mensaje para detectar llamadas a funciones
+                        try:
+                            message_data = json.loads(message)
+                            
+                            # Detectar y ejecutar function calls
+                            if message_data.get("type") == "response.done":
+                                output_items = message_data.get("response", {}).get("output", [])
+                                
+                                for item in output_items:
+                                    if item.get("type") == "function_call":
+                                        function_name = item.get("name")
+                                        call_id = item.get("call_id")
+                                        arguments = item.get("arguments", "{}")
+                                        
+                                        print(f"🔧 Ejecutando función: {function_name}")
+                                        
+                                        try:
+                                            # Ejecutar la función
+                                            result = await function_manager.execute_function(function_name, arguments)
+                                            print(f"✅ Resultado: {result}")
+                                            
+                                            # Enviar resultado a OpenAI
+                                            function_output = {
+                                                "type": "conversation.item.create",
+                                                "item": {
+                                                    "type": "function_call_output",
+                                                    "call_id": call_id,
+                                                    "output": json.dumps(result)
+                                                }
+                                            }
+                                            await openai_ws.send(json.dumps(function_output))
+                                            
+                                            # Solicitar nueva respuesta
+                                            await openai_ws.send(json.dumps({"type": "response.create"}))
+                                            
+                                        except Exception as e:
+                                            print(f"❌ Error ejecutando función {function_name}: {e}")
+                        except:
+                            pass  # No es JSON o no necesita procesamiento especial
+                        
+                        # Reenviar mensaje al cliente
+                        await websocket.send_text(message)
+                        
+                except websockets.exceptions.ConnectionClosed:
+                    print("🔌 OpenAI desconectado")
+                except Exception as e:
+                    print(f"❌ Error reenviando a cliente: {e}")
+            
+            # Ejecutar ambas tareas simultáneamente
+            await asyncio.gather(
+                forward_to_openai(),
+                forward_to_client()
+            )
+            
+    except websockets.exceptions.InvalidStatusCode as e:
+        error_msg = f"Error de autenticación con OpenAI: {e}"
+        print(f"❌ {error_msg}")
+        await websocket.send_text(json.dumps({
+            "type": "error",
+            "error": {"message": error_msg}
+        }))
+    except Exception as e:
+        error_msg = f"Error en WebSocket proxy: {str(e)}"
+        print(f"❌ {error_msg}")
+        try:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "error": {"message": error_msg}
+            }))
+        except:
+            pass
+    finally:
+        print("🔌 WebSocket proxy cerrado")
 
 
 if __name__ == "__main__":
