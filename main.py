@@ -162,7 +162,7 @@ async def websocket_task_async(call_id: str) -> None:
         
         async with websockets.connect(
             uri,
-            extra_headers={
+            additional_headers={
                 "Authorization": f"Bearer {OPENAI_API_KEY}",
                 "OpenAI-Beta": "realtime=v1"
             }
