@@ -51,5 +51,5 @@ if __name__ == "__main__":
         exams = json.load(f)
     print(f"Loaded {len(exams)} exams")
     create_idx()
-    add_exams_to_hash(exams)
+    add_exams_to_hash(exams["examenes"])
     print("All exams added to Redis")
