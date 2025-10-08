@@ -6,6 +6,7 @@ from database import (
 )
 
 from email_helper import send_email_with_file
+from rag_functions import search_general_exam_info, search_info_about_the_lab
 
 
 tools = [
@@ -94,6 +95,44 @@ tools = [
             },
             "required": ["to_email", "subject", "body", "files_to_attach"]
         }
+    },
+    {
+        "type": "function",
+        "name": "search_general_exam_info",
+        "description": "Busca información general sobre un examen médico específico. Utiliza búsqueda vectorial para encontrar detalles sobre qué hace un examen, sus características, preparación requerida, etc. NO es para consultar exámenes de un usuario específico, sino para obtener información descriptiva sobre tipos de exámenes disponibles.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Pregunta o descripción del examen médico sobre el cual se desea obtener información. Ejemplo: '¿Qué mide el examen de glucosa?' o 'información sobre hemograma completo'"
+                },
+                "num_results": {
+                    "type": "integer",
+                    "description": "Número de resultados a retornar. Por defecto se recomienda entre 3-5 resultados para obtener información completa"
+                }
+            },
+            "required": ["query", "num_results"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "search_info_about_the_lab",
+        "description": "Busca información general sobre el laboratorio que NO esté relacionada con exámenes médicos específicos. Utiliza búsqueda vectorial sobre documentos del laboratorio para responder preguntas sobre servicios, ubicaciones, horarios, políticas, procedimientos generales, etc.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Pregunta sobre información general del laboratorio. Ejemplo: 'horarios de atención', 'ubicaciones disponibles', 'cómo agendar una cita', 'políticas de privacidad'"
+                },
+                "num_results": {
+                    "type": "integer",
+                    "description": "Número de resultados a retornar. Por defecto se recomienda entre 3-5 resultados para obtener información completa"
+                }
+            },
+            "required": ["query", "num_results"]
+        }
     }
 ]
 
@@ -103,5 +142,7 @@ available_functions = {
     "obtener_usuario": obtener_usuario,
     "obtener_examenes_medicos": obtener_examenes_medicos,
     "obtener_cita_examen_medico": obtener_cita_examen_medico,
-    "send_email_with_file": send_email_with_file    
+    "send_email_with_file": send_email_with_file,
+    "search_general_exam_info": search_general_exam_info,
+    "search_info_about_the_lab": search_info_about_the_lab
 }
