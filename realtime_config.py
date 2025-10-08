@@ -291,13 +291,6 @@ IMPORTANTE: Acento barranquillero urbano - profesional y natural
 - `query`: Pregunta o descripción del examen (string)
 - `num_results`: Número de resultados, recomendado 3-5 (integer)
 
-**Ejemplo de uso:**
-```json
-{
-  "query": "¿Qué mide el examen de hemograma completo y cómo debo prepararme?",
-  "num_results": 4
-}
-```
 
 ## 7. search_info_about_the_lab
 **Cuándo usarla:**
@@ -336,14 +329,6 @@ IMPORTANTE: Acento barranquillero urbano - profesional y natural
 **Parámetros requeridos:**
 - `query`: Pregunta sobre el laboratorio (string)
 - `num_results`: Número de resultados, recomendado 3-5 (integer)
-
-**Ejemplo de uso:**
-```json
-{
-  "query": "¿Cuáles son las sedes de Pasteur en Barranquilla y sus horarios de atención?",
-  "num_results": 5
-}
-```
 
 **IMPORTANTE - Diferencia entre search_general_exam_info y search_info_about_the_lab:**
 - `search_general_exam_info`: Para información sobre EXÁMENES MÉDICOS (qué son, cómo funcionan, preparación)
