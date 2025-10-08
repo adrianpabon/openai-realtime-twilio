@@ -1,0 +1,38 @@
+# Nuestra Tecnología
+
+##### Lo más cerca que usted puede estar de CERO ERROR
+
+**Sistema Robótico Inteligente APTIO**
+
+Pasteur Laboratorios Clínicos de Colombia pone a disposición de sus pacientes y usuarios su sistema de automatización robótico-inteligente *Aptio Automation* de Siemens, catalogado como el más sofisticado y grande de toda Colombia, no en vano puede gestionar **4.500 exámenes por hora**, reduciendo hasta en un **80 % el tiempo de procesamiento**, un apoyo vital para los médicos, entidades de salud y pacientes en la detección oportuna y asertiva de los diferentes padecimientos.
+
+---
+
+## Características destacadas
+
+- Municipalidad de muestras automatizado —bandas de transporte neumático conectadas al sistema organizador de muestras “APTIO”, gestionado por software de control (*CentraLink*).  
+- Identificación dual de la muestra-paciente durante todo el proceso mediante **código de barras** y **radiofrecuencia**, asegurando la correcta trazabilidad.  
+- Distribución robotizada de tubos entre instrumentos, optimizando velocidad y volúmenes requeridos.  
+- Centrifugación de alta capacidad y seroteca automatizada; más del 60 % de los tubos de sangre **no requieren manipulación manual adicional**.  
+- Eliminación automática de tubos luego de una semana de almacenamiento.  
+
+---
+
+## Beneficios principales
+
+- **Resultados más rápidos**: gran capacidad de procesamiento (≈ 4.500 exámenes/hora) que reduce tiempos.  
+- **Máxima seguridad y confiabilidad** en los resultados: menor margen de error gracias a la trazabilidad, automatización integral y procesos robustos.  
+- **Alta productividad y eficiencia**: integración de etapas preanalítica, analítica y postanalítica sin interrupciones, uso de tecnología robótica avanzada.  
+- Laboratorio de última generación: **el sistema Aptio de Siemens** en Pasteur es el número 10 en funcionamiento en América Latina, y uno de los pocos en Colombia.  
+
+---
+
+## Filosofía y compromiso tecnológico
+
+- Se busca operar bajo estándares internacionales de calidad, con tecnología que no solo mejore eficiencia sino también confiabilidad en diagnóstico y tratamiento.  
+- Automatización inteligente para minimizar errores humanos.  
+- Adaptabilidad para incorporar muestras urgentes y rutinarias en los mismos procesos automatizados.  
+
+---
+
+**Fuente:** Sección “Nuestra Tecnología”, Página “Conócenos” – Pasteur Laboratorios Clínicos. :contentReference[oaicite:0]{index=0}

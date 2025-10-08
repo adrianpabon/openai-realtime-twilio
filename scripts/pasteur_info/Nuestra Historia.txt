@@ -1,0 +1,50 @@
+# Nuestra Historia
+
+## Pasteur, a tu lado siempre
+
+Pasteur Laboratorios Clínicos de Colombia es un ejemplo de emprendimiento empresarial protagonista del ímpetu progresista de la región Caribe. Ha gestado su labor científica en la constante actualización, creación e implementación de nuevos servicios y tecnologías de última generación. Un laboratorio clínico pionero en la región Caribe y el país en adoptar desarrollos de avanzada en procura de garantizar resultados de calidad y con la más alta confiabilidad.
+
+Pasteur es una empresa dedicada al procesamiento de exámenes clínicos de I, II, III y IV nivel de complejidad y citología. Además, se ofrecen servicios de asesoría para el montaje de un laboratorio, estructura de costos, y venta de nuestro propio software para laboratorios clínicos.
+
+---
+
+### 📅 Línea de Tiempo
+
+| Año | Hitos importantes |
+|---|----------------------|
+| **1948** | Fundado el **26 de noviembre de 1948** en Barranquilla, por el doctor Humberto Abello Lobo (Bacteriólogo). Su primera sede estaba en la Calle 36 con la Carrera 45. |
+| **1959** | Se traslada a la Calle 42 N. 41-39, epicentro de las artes médicas de finales de los años 50. |
+| **1962** | Se construye el Centro Médico más moderno de la ciudad bajo el nombre “Centro Médico Pasteur”. Esa sede, remodelada en 1966, funciona actualmente como la sede Centro. |
+| **1964** | Primer laboratorio clínico de Colombia en usar jeringas desechables. |
+| **1978** | Inicia la era de la automatización en Barranquilla con el Dr. Humberto Abello Lascano; cambia la razón social a *Laboratorio Clínico Pasteur Automatizado Ltda.* y se convierte en líder en innovación científica, tecnológica y comercial. |
+| **1983** | En asocio con un grupo de médicos se construye la Unidad Médica Villa Country, incluyendo salas de cirugía ambulatoria. |
+| **1991-1992** | Se inicia construcción de nueva sede con 1.300 m², dos plantas de 500 m² cada una; se inaugura la nueva sede en abril de 1992. |
+| **1993** | Pasteur comienza a exportar servicios de asesoría en montaje de laboratorios clínicos, llegando a países como Aruba, Honduras y Panamá. |
+| **1996** | Se funda el primer Laboratorio de Genética y Biología Molecular de la costa: DNA Laboratorio de Genética y Biología Molecular. |
+| **1998** | Se inicia la regional Cartagena, sede de 300 m² en Bocagrande con tecnología equivalente a la sede principal. |
+| **2000** | Se inaugura sede en el Sur de Barranquilla, en el Centro Comercial Ronda Real. |
+| **2002** | Nace “Pasteur Pediátrico”, área exclusiva para niños con ambientación especial, juegos y elementos para hacer más cómoda su experiencia. |
+| **2003** | Participación como asesor en proyectos internacionales: FAMILY HOSPITAL CORPORATION en Honduras, alianzas con Harvard y otros. |
+| **2004** | Introducción de pruebas de Tamizaje Neonatal Computarizado y Citología de Capa Fina; certificación ISO 9001:2000 y ANSI-RAB por Bureau Veritas. |
+| **2005** | Implementación exclusiva en la Costa Caribe de la prueba de Virus del Papiloma Humano (VPH). |
+| **2007** | Se lanza CONLAB-WEB, servicio de resultados e información en línea para pacientes, médicos y entidades. |
+| **2008-2009** | Proyecto de regional Bogotá; apertura temporal de sedes propias en Medellín para atender clientes especiales. |
+| **2010** | Pasteur exporta servicios a Quito, Ecuador; se moderniza la imagen corporativa e incursiona en redes sociales. |
+| **2011** | Lanzamiento de nuevas plataformas tecnológicas: Tsalud, WebMed, Mynuvola. |
+| **2014** | Inicia operaciones **Pasteur Élite**. También ofrece pruebas genéticas de avanzada como MaterniT21 Plus, Recombine, Septina 9. |
+| **2015** | Se fortalece el servicio de Salud Ocupacional con altos estándares de calidad y entrega oportuna de resultados. |
+| **2017** | Primer laboratorio del país en usar el sistema Robótico Siemens Aptio. |
+
+---
+
+## Declaraciones institucionales
+
+**Misión**  
+Somos un laboratorio de alta complejidad, de carácter privado, que presta servicios de análisis clínicos y citológicos, con tecnología de vanguardia y un equipo humano calificado; garantizando altos estándares de calidad, ofreciendo a las partes interesadas un servicio diferencial en términos de seguridad, oportunidad, confiabilidad y calidad total.
+
+**Visión**  
+Para el año 2028, mantener y fortalecer nuestra posición como líderes y referentes en América Latina en términos de innovación tecnológica y excelencia en la prestación de los servicios de laboratorio clínico. La confiabilidad de nuestros resultados seguirá siendo respaldada bajo la Norma ISO 15189, lo que demuestra el compromiso con los más altos estándares de calidad.
+
+---
+
+**Fuente:** Sección *Nuestra Historia*, página *Conócenos* – Pasteur Laboratorios Clínicos de Colombia. :contentReference[oaicite:0]{index=0}
