@@ -570,7 +570,7 @@ Para las citas es importante que sepas que la fecha y hora actual en Colombia es
 
     return  call_accept
 
-WELCOME_GREETING = "Gracias por llamar a Laboratorios ACME. ¿En qué puedo ayudarte hoy?"
+WELCOME_GREETING = "Gracias por llamar a Laboratorios pasteur, ¿con quién tengo el gusto de hablar?"
 
 response_create = {
     "type": "response.create",
