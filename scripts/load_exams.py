@@ -47,7 +47,6 @@ def add_exams_to_hash(exams_array):
 
 
 if __name__ == "__main__":
-    client = OpenAI()
     with open("examenes_laboratorio_completo.json", "r", encoding="utf-8") as f:
         exams = json.load(f)
     print(f"Loaded {len(exams)} exams")
