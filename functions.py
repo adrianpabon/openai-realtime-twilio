@@ -2,7 +2,10 @@ from database import (
     listar_usuarios,
     obtener_examenes_medicos,
     obtener_cita_examen_medico,
-    obtener_usuario
+    obtener_usuario,
+    crear_cita,
+    verificar_disponibilidad_citas,
+    obtener_citas_activas_usuario
 )
 
 from email_helper import send_email_with_file
@@ -133,6 +136,67 @@ tools = [
             },
             "required": ["query", "num_results"]
         }
+    },
+    {
+        "type": "function",
+        "name": "verificar_disponibilidad_citas",
+        "description": "Verifica si hay disponibilidad para agendar una cita en una fecha, hora y ciudad específicas. Muestra cuántas citas ya están programadas en ese horario. IMPORTANTE: Usar SIEMPRE antes de crear una cita para confirmar disponibilidad con el usuario.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "fecha_cita": {
+                    "type": "string",
+                    "description": "Fecha y hora exacta a verificar en formato '2025-10-15 10:30 AM' o similar. Debe incluir día, hora y minutos"
+                },
+                "ciudad": {
+                    "type": "string",
+                    "description": "Ciudad donde se verificará disponibilidad. Ejemplos: 'Barranquilla', 'Bogotá', 'Medellín', 'Cali'"
+                }
+            },
+            "required": ["fecha_cita", "ciudad"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "obtener_citas_activas_usuario",
+        "description": "Consulta todas las citas activas y programadas de un usuario específico usando su user_id (NO cédula). IMPORTANTE: Primero usar listar_usuarios para obtener el user_id del usuario. Útil cuando el usuario pregunta '¿qué citas tengo?' o 'consultar mis citas programadas'.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id_usuario": {
+                    "type": "integer",
+                    "description": "ID interno del usuario (user_id) obtenido con listar_usuarios. NO es la cédula."
+                }
+            },
+            "required": ["id_usuario"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "crear_cita",
+        "description": "Crea y confirma una nueva cita médica para un usuario registrado usando su user_id (NO cédula). IMPORTANTE: (1) Primero usar listar_usuarios para obtener user_id, (2) Usar verificar_disponibilidad_citas, (3) Confirmar con el usuario, (4) Crear cita. La función valida disponibilidad internamente y envía correo de confirmación automáticamente.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id_usuario": {
+                    "type": "integer",
+                    "description": "ID interno del usuario (user_id) obtenido con listar_usuarios. NO es la cédula."
+                },
+                "fecha_cita": {
+                    "type": "string",
+                    "description": "Fecha y hora de la cita en formato '2025-10-15 10:30 AM' o similar. Asegurarse que hay disponibilidad"
+                },
+                "tipo_examen": {
+                    "type": "string",
+                    "description": "Tipo de examen médico a realizar. Ejemplos: 'Hemograma completo', 'Glucosa en ayunas', 'Examen de orina', etc."
+                },
+                "ciudad": {
+                    "type": "string",
+                    "description": "Ciudad donde se realizará el examen. Ejemplos: 'Barranquilla', 'Bogotá', 'Medellín', 'Cali'"
+                }
+            },
+            "required": ["id_usuario", "fecha_cita", "tipo_examen", "ciudad"]
+        }
     }
 ]
 
@@ -144,5 +208,8 @@ available_functions = {
     "obtener_cita_examen_medico": obtener_cita_examen_medico,
     "send_email_with_file": send_email_with_file,
     "search_general_exam_info": search_general_exam_info,
-    "search_info_about_the_lab": search_info_about_the_lab
+    "search_info_about_the_lab": search_info_about_the_lab,
+    "verificar_disponibilidad_citas": verificar_disponibilidad_citas,
+    "obtener_citas_activas_usuario": obtener_citas_activas_usuario,
+    "crear_cita": crear_cita
 }

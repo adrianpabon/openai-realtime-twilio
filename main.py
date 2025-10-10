@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from realtime_config import choose_random_assistant, response_create
 import os
 from dotenv import load_dotenv
@@ -10,6 +11,7 @@ import json
 import httpx
 import threading
 from function_manager import FunctionManager
+from database import obtener_cita_por_id, listar_todas_citas
 
 
 load_dotenv()
@@ -267,8 +269,450 @@ async def webhook(request: Request):
 
 @app.get("/health")
 async def health():
-    """Health check endpoint""" 
+    """Health check endpoint"""
     return {"status": "ok"}
+
+
+@app.get("/citas/{cita_id}", response_class=HTMLResponse)
+async def ver_cita(cita_id: int):
+    """Endpoint público para ver una cita específica"""
+    cita = obtener_cita_por_id(cita_id)
+
+    if not cita:
+        return HTMLResponse(
+            content="""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Cita no encontrada</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+                    .container { background: white; padding: 40px; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+                    h1 { color: #e74c3c; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>❌ Cita no encontrada</h1>
+                    <p>No se encontró una cita con el ID proporcionado.</p>
+                </div>
+            </body>
+            </html>
+            """,
+            status_code=404
+        )
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Confirmación de Cita - ID {cita['id']}</title>
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }}
+
+            .card {{
+                background: white;
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                max-width: 600px;
+                width: 100%;
+                overflow: hidden;
+                animation: slideIn 0.5s ease-out;
+            }}
+
+            @keyframes slideIn {{
+                from {{
+                    opacity: 0;
+                    transform: translateY(-20px);
+                }}
+                to {{
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
+            }}
+
+            .header {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 30px;
+                text-align: center;
+            }}
+
+            .header h1 {{
+                font-size: 28px;
+                margin-bottom: 10px;
+            }}
+
+            .checkmark {{
+                font-size: 60px;
+                animation: bounce 1s ease;
+            }}
+
+            @keyframes bounce {{
+                0%, 20%, 50%, 80%, 100% {{ transform: translateY(0); }}
+                40% {{ transform: translateY(-20px); }}
+                60% {{ transform: translateY(-10px); }}
+            }}
+
+            .content {{
+                padding: 40px;
+            }}
+
+            .info-section {{
+                margin-bottom: 25px;
+            }}
+
+            .info-section h2 {{
+                color: #667eea;
+                font-size: 18px;
+                margin-bottom: 15px;
+                border-bottom: 2px solid #667eea;
+                padding-bottom: 8px;
+            }}
+
+            .info-row {{
+                display: flex;
+                justify-content: space-between;
+                padding: 12px 0;
+                border-bottom: 1px solid #f0f0f0;
+            }}
+
+            .info-row:last-child {{
+                border-bottom: none;
+            }}
+
+            .label {{
+                font-weight: 600;
+                color: #555;
+            }}
+
+            .value {{
+                color: #333;
+                text-align: right;
+            }}
+
+            .cita-id {{
+                background: #667eea;
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                display: inline-block;
+                font-weight: bold;
+                margin-bottom: 20px;
+            }}
+
+            .alert {{
+                background: #e3f2fd;
+                border-left: 4px solid #2196F3;
+                padding: 15px;
+                margin-top: 25px;
+                border-radius: 5px;
+            }}
+
+            .alert h3 {{
+                color: #1976D2;
+                margin-bottom: 8px;
+                font-size: 16px;
+            }}
+
+            .alert p {{
+                color: #555;
+                line-height: 1.6;
+            }}
+
+            .footer {{
+                background: #f8f9fa;
+                padding: 20px;
+                text-align: center;
+                color: #777;
+                font-size: 14px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">
+                <div class="checkmark">✅</div>
+                <h1>Cita Confirmada</h1>
+                <p>Tu cita ha sido agendada exitosamente</p>
+            </div>
+
+            <div class="content">
+                <div class="cita-id">ID de Cita: #{cita['id']}</div>
+
+                <div class="info-section">
+                    <h2>📋 Información del Paciente</h2>
+                    <div class="info-row">
+                        <span class="label">Nombre:</span>
+                        <span class="value">{cita['paciente']['nombre']} {cita['paciente']['apellido']}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Identificación:</span>
+                        <span class="value">{cita['paciente']['identificacion']}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Correo:</span>
+                        <span class="value">{cita['paciente']['correo']}</span>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h2>📅 Detalles de la Cita</h2>
+                    <div class="info-row">
+                        <span class="label">Fecha y Hora:</span>
+                        <span class="value">{cita['fecha_cita']}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Ciudad:</span>
+                        <span class="value">{cita['ciudad']}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Dirección:</span>
+                        <span class="value">{cita['direccion']}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Fecha de Creación:</span>
+                        <span class="value">{cita['fecha_creacion']}</span>
+                    </div>
+                </div>
+
+                <div class="alert">
+                    <h3>ℹ️ Importante</h3>
+                    <p>Por favor, llega 15 minutos antes de tu cita. Trae tu documento de identidad y cualquier examen previo que tengas.</p>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p>Si necesitas cancelar o reprogramar, contacta a nuestro centro.</p>
+                <p><strong>Laboratorio Clínico</strong></p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    return HTMLResponse(content=html_content)
+
+
+@app.get("/citas", response_class=HTMLResponse)
+async def listar_citas_html():
+    """Endpoint público para ver todas las citas"""
+    citas = listar_todas_citas()
+
+    filas_html = ""
+    if citas:
+        for cita in citas:
+            filas_html += f"""
+            <tr onclick="window.location.href='/citas/{cita['id']}'" style="cursor: pointer;">
+                <td>{cita['id']}</td>
+                <td>{cita['paciente_nombre']}</td>
+                <td>{cita['identificacion']}</td>
+                <td>{cita['fecha_cita']}</td>
+                <td>{cita['ciudad']}</td>
+                <td><span class="badge">Confirmada</span></td>
+            </tr>
+            """
+    else:
+        filas_html = """
+        <tr>
+            <td colspan="6" style="text-align: center; color: #777;">No hay citas registradas</td>
+        </tr>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Panel de Citas Médicas</title>
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 40px 20px;
+            }}
+
+            .container {{
+                max-width: 1200px;
+                margin: 0 auto;
+            }}
+
+            .header {{
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                margin-bottom: 30px;
+                text-align: center;
+            }}
+
+            .header h1 {{
+                color: #667eea;
+                font-size: 32px;
+                margin-bottom: 10px;
+            }}
+
+            .header p {{
+                color: #777;
+                font-size: 16px;
+            }}
+
+            .stats {{
+                display: flex;
+                gap: 20px;
+                margin-bottom: 30px;
+                flex-wrap: wrap;
+            }}
+
+            .stat-card {{
+                flex: 1;
+                min-width: 200px;
+                background: white;
+                padding: 25px;
+                border-radius: 15px;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+                text-align: center;
+            }}
+
+            .stat-number {{
+                font-size: 36px;
+                font-weight: bold;
+                color: #667eea;
+                margin-bottom: 10px;
+            }}
+
+            .stat-label {{
+                color: #777;
+                font-size: 14px;
+            }}
+
+            .table-container {{
+                background: white;
+                border-radius: 15px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                overflow: hidden;
+            }}
+
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+            }}
+
+            thead {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }}
+
+            thead th {{
+                padding: 20px;
+                text-align: left;
+                font-weight: 600;
+            }}
+
+            tbody tr {{
+                border-bottom: 1px solid #f0f0f0;
+                transition: background-color 0.3s;
+            }}
+
+            tbody tr:hover {{
+                background-color: #f8f9ff;
+            }}
+
+            tbody td {{
+                padding: 18px 20px;
+                color: #333;
+            }}
+
+            .badge {{
+                background: #4CAF50;
+                color: white;
+                padding: 5px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: bold;
+            }}
+
+            @media (max-width: 768px) {{
+                .stats {{
+                    flex-direction: column;
+                }}
+
+                table {{
+                    font-size: 14px;
+                }}
+
+                thead th, tbody td {{
+                    padding: 12px 10px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📅 Panel de Citas Médicas</h1>
+                <p>Gestión y visualización de citas programadas</p>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">{len(citas)}</div>
+                    <div class="stat-label">Total de Citas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{len([c for c in citas if c['ciudad']])}</div>
+                    <div class="stat-label">Citas Confirmadas</div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Paciente</th>
+                            <th>Identificación</th>
+                            <th>Fecha</th>
+                            <th>Ciudad</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filas_html}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    return HTMLResponse(content=html_content)
 
 
 if __name__ == "__main__":
