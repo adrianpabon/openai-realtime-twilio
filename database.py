@@ -452,3 +452,13 @@ def listar_usuarios(db_path: str = DB_NAME) -> Optional[Dict[str, Any]]:
     ''')
     return cursor.fetchall()
 
+def eliminar_cita(id: int, db_path: str = DB_NAME) -> Optional[Dict[str, Any]]:
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        DELETE FROM cita_examen_medico WHERE id = ?
+    ''', (id,))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount
+

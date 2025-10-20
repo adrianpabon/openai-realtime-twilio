@@ -5,7 +5,8 @@ from database import (
     obtener_usuario,
     crear_cita,
     verificar_disponibilidad_citas,
-    obtener_citas_activas_usuario
+    obtener_citas_activas_usuario,
+    eliminar_cita
 )
 
 from email_helper import send_email_with_file
@@ -197,6 +198,21 @@ tools = [
             },
             "required": ["id_usuario", "fecha_cita", "tipo_examen", "ciudad"]
         }
+    },
+    {
+        "type": "function",
+        "name": "eliminar_cita",
+        "description": "Elimina una cita médica previamente programada usando su ID de cita. IMPORTANTE: (1) Primero usar obtener_citas_activas_usuario para mostrar las citas del usuario y obtener el ID, (2) Confirmar con el usuario qué cita desea eliminar, (3) Ejecutar la eliminación. La función elimina permanentemente la cita de la base de datos.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "description": "ID único de la cita que se desea eliminar. Este ID se obtiene consultando las citas activas del usuario"
+                }
+            },
+            "required": ["id"]
+        }
     }
 ]
 
@@ -211,5 +227,6 @@ available_functions = {
     "search_info_about_the_lab": search_info_about_the_lab,
     "verificar_disponibilidad_citas": verificar_disponibilidad_citas,
     "obtener_citas_activas_usuario": obtener_citas_activas_usuario,
-    "crear_cita": crear_cita
+    "crear_cita": crear_cita,
+    "eliminar_cita": eliminar_cita
 }

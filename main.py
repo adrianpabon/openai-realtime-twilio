@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from realtime_config import choose_random_assistant, response_create
 import os
@@ -12,6 +12,7 @@ import httpx
 import threading
 from function_manager import FunctionManager
 from database import obtener_cita_por_id, listar_todas_citas
+from call_recorder import call_recorder
 
 
 load_dotenv()
@@ -42,6 +43,9 @@ async def handle_websocket_message(message_data: dict, ws, function_manager: Fun
     """Maneja diferentes tipos de mensajes del WebSocket"""
     message_type = message_data.get("type", "")
     
+    # 🔴 GRABACIÓN: Procesar audio y conversación
+    await call_recorder.process_audio_chunk(message_data)
+    await call_recorder.log_conversation(message_data)
     
     # Manejo específico por tipo de mensaje
     if message_type == "session.created":
@@ -151,6 +155,9 @@ async def websocket_task_async(call_id: str) -> None:
     try:
         function_manager = FunctionManager()
         
+        # 🔴 INICIAR GRABACIÓN
+        call_recorder.start_recording(call_id)
+        
         async with websockets.connect(
             uri,
             additional_headers={
@@ -179,6 +186,13 @@ async def websocket_task_async(call_id: str) -> None:
         print(f"🔌 WebSocket connection closed: {e.code} - {e.reason}")
     except Exception as e:
         print(f"❌ WebSocket error: {e}")
+    finally:
+        # 🔴 GUARDAR GRABACIÓN AL FINALIZAR
+        try:
+            recording_result = await call_recorder.save_recording()
+            print(f"💾 Grabación guardada: {recording_result}")
+        except Exception as e:
+            print(f"⚠️ Error guardando grabación: {e}")
 
 
 
@@ -271,6 +285,154 @@ async def webhook(request: Request):
 async def health():
     """Health check endpoint"""
     return {"status": "ok"}
+
+
+@app.get("/debug/files")
+async def debug_files():
+    """Debug endpoint para verificar archivos"""
+    current_dir = os.path.dirname(__file__)
+    html_path = os.path.join(current_dir, "recordings_viewer.html")
+    
+    return {
+        "current_directory": current_dir,
+        "html_path": html_path,
+        "html_exists": os.path.exists(html_path),
+        "files_in_directory": os.listdir(current_dir) if os.path.exists(current_dir) else "No existe"
+    }
+
+
+@app.get("/recordings-viewer")
+async def recordings_viewer():
+    """Sirve la interfaz web para ver grabaciones"""
+    try:
+        html_path = os.path.join(os.path.dirname(__file__), "recordings_viewer.html")
+        if os.path.exists(html_path):
+            return FileResponse(html_path)
+        else:
+            return HTMLResponse("<h1>Error: recordings_viewer.html no encontrado</h1>", status_code=404)
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error: {str(e)}</h1>", status_code=500)
+
+
+@app.get("/viewer")
+async def viewer_alternative():
+    """Endpoint alternativo para la interfaz web"""
+    try:
+        html_path = os.path.join(os.path.dirname(__file__), "recordings_viewer.html")
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        return HTMLResponse("<h1>Error: Archivo recordings_viewer.html no encontrado</h1>", status_code=404)
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error: {str(e)}</h1>", status_code=500)
+
+
+@app.get("/recordings")
+async def list_recordings():
+    """Lista todas las grabaciones disponibles"""
+    try:
+        recordings = call_recorder.get_recordings_list()
+        return {
+            "status": "success",
+            "total_recordings": len(recordings),
+            "recordings": recordings
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@app.get("/recordings/{recording_id}/conversation")
+async def get_recording_conversation(recording_id: str):
+    """Obtiene la conversación de una grabación específica"""
+    try:
+        conversation_file = f"recordings/{recording_id}_conversation.json"
+        
+        if not os.path.exists(conversation_file):
+            return {
+                "status": "error",
+                "message": "Grabación no encontrada"
+            }
+        
+        with open(conversation_file, 'r', encoding='utf-8') as f:
+            conversation_data = json.load(f)
+        
+        return {
+            "status": "success",
+            "conversation": conversation_data
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@app.get("/recordings/{recording_id}/summary")
+async def get_recording_summary(recording_id: str):
+    """Obtiene el resumen de una grabación específica"""
+    try:
+        summary_file = f"recordings/{recording_id}_summary.txt"
+        
+        if not os.path.exists(summary_file):
+            return {
+                "status": "error",
+                "message": "Resumen no encontrado"
+            }
+        
+        with open(summary_file, 'r', encoding='utf-8') as f:
+            summary_content = f.read()
+        
+        return {
+            "status": "success",
+            "summary": summary_content
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@app.delete("/recordings/{recording_id}")
+async def delete_recording(recording_id: str):
+    """Elimina una grabación específica"""
+    try:
+        files_to_delete = [
+            f"recordings/{recording_id}_conversation.json",
+            f"recordings/{recording_id}_summary.txt",
+            f"recordings/{recording_id}_audio.bin"
+        ]
+        
+        deleted_files = []
+        
+        for file_path in files_to_delete:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                deleted_files.append(os.path.basename(file_path))
+        
+        if deleted_files:
+            return {
+                "status": "success",
+                "message": f"Grabación eliminada: {recording_id}",
+                "deleted_files": deleted_files
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "No se encontraron archivos para eliminar"
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 
 @app.get("/citas/{cita_id}", response_class=HTMLResponse)
