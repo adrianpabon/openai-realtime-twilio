@@ -905,9 +905,11 @@ import locale
 app = FastAPI()
 
 # Configuración de EvolutionAPI
-EVOLUTION_API_URL = "https://evolution-api-production-827b.up.railway.app"
-EVOLUTION_API_KEY = "8BF194C1A4C39A38A4EF7DEB99B49"
-INSTANCE_NAME = "opti"
+
+
+EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL")  
+EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
+INSTANCE_NAME = os.getenv("INSTANCE_NAME")
 
 # Configuración de OpenAI
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
