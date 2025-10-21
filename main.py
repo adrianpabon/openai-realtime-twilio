@@ -42,10 +42,14 @@ REALTIME_INCOMING_CALL = "realtime.call.incoming"
 async def handle_websocket_message(message_data: dict, ws, function_manager: FunctionManager ) -> None:
     """Maneja diferentes tipos de mensajes del WebSocket"""
     message_type = message_data.get("type", "")
-    
+
     # 🔴 GRABACIÓN: Procesar audio y conversación
     await call_recorder.process_audio_chunk(message_data)
     await call_recorder.log_conversation(message_data)
+
+    # DEBUG: Log todos los tipos de mensajes relacionados con audio
+    if "audio" in message_type:
+        print(f"🎵 DEBUG Audio Event: {message_type}")
     
     # Manejo específico por tipo de mensaje
     if message_type == "session.created":
@@ -119,7 +123,8 @@ async def handle_websocket_message(message_data: dict, ws, function_manager: Fun
         
     elif message_type == "response.audio.delta":
         # Audio chunks del asistente
-        print("🔊 Receiving audio chunk")
+        audio_data = message_data.get("delta", "")
+        print(f"🔊 Receiving audio chunk - Size: {len(audio_data) if audio_data else 0} bytes")
         
     elif message_type == "response.audio_transcript.delta":
         # Transcripción del audio del asistente
