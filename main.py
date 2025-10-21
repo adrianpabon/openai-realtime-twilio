@@ -897,14 +897,10 @@ parent_dir = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(parent_dir))
 
 from function_manager import FunctionManager
-from functions import tools
+from functions import tools, available_functions
 import locale
 
-load_dotenv()
 
-# Configurar la ruta de la base de datos al directorio raíz
-DB_PATH = str(parent_dir / "database.db")
-print(f"📊 Usando base de datos: {DB_PATH}")
 
 app = FastAPI()
 
@@ -939,20 +935,6 @@ DATABASE_FUNCTIONS = {
     'crear_cita', 'obtener_cita_por_id', 'listar_todas_citas', 'eliminar_cita'
 }
 
-async def execute_function_with_db_path(function_name: str, arguments: str):
-    """
-    Wrapper que ejecuta funciones inyectando db_path cuando sea necesario
-    """
-    # Parse argumentos
-    kwargs = json.loads(arguments) if arguments else {}
-    
-    # Si es una función de database, agregar db_path
-    if function_name in DATABASE_FUNCTIONS:
-        kwargs['db_path'] = DB_PATH
-    
-    # Ejecutar usando el function manager
-    result = await function_manager.execute_function(function_name, json.dumps(kwargs))
-    return result
 
 class WebhookPayload(BaseModel):
     event: str
@@ -1393,16 +1375,16 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
         messages = [
             {"role": "system", "content": get_text_assistant_prompt()}
         ]
-        
+
         # Agregar historial de conversación
         messages.extend(conversation_history)
-        
+
         # Agregar mensaje actual del usuario
         messages.append({"role": "user", "content": user_message})
-        
+
         print(f"\n🤖 Procesando con OpenAI...")
         print(f"📝 Mensajes enviados: {len(messages)}")
-        
+
         # Convertir tools al formato de OpenAI Chat Completions
         openai_tools = []
         for tool in tools:
@@ -1414,46 +1396,53 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
                     "parameters": tool["parameters"]
                 }
             })
-        
+
         # Primera llamada a OpenAI
         response = openai_client.chat.completions.create(
-            model="gpt-4-turbo-preview",
+            model="gpt-4.1",
             messages=messages,
             tools=openai_tools,
             tool_choice="auto"
         )
-        
+
         response_message = response.choices[0].message
         tool_calls = response_message.tool_calls
-        
+
         # Si hay function calls, procesarlas
         if tool_calls:
             print(f"\n🔧 Se detectaron {len(tool_calls)} function calls")
-            
+
             # Agregar la respuesta del asistente a los mensajes
             messages.append(response_message)
-            
+
             # Ejecutar cada function call
             for tool_call in tool_calls:
                 function_name = tool_call.function.name
-                function_args = tool_call.function.arguments
-                
+                function_args_str = tool_call.function.arguments
+
                 print(f"   📞 Ejecutando: {function_name}")
-                print(f"   📋 Argumentos: {function_args}")
-                
-                # Ejecutar la función con db_path inyectado
+                print(f"   📋 Argumentos: {function_args_str}")
+
+                # Ejecutar la función usando available_functions
                 try:
-                    function_response = await execute_function_with_db_path(
-                        function_name=function_name,
-                        arguments=function_args
-                    )
-                    
+                    # Parsear argumentos JSON
+                    function_args = json.loads(function_args_str)
+
+                    # Obtener la función del diccionario
+                    if function_name not in available_functions:
+                        raise ValueError(f"Función {function_name} no encontrada en available_functions")
+
+                    function_to_call = available_functions[function_name]
+
+                    # Ejecutar la función con los argumentos
+                    function_response = function_to_call(**function_args)
+
                     # Convertir respuesta a string si es necesario
                     if not isinstance(function_response, str):
                         function_response = json.dumps(function_response, ensure_ascii=False)
-                    
+
                     print(f"   ✓ Resultado: {function_response[:200]}...")
-                    
+
                     # Agregar el resultado de la función a los mensajes
                     messages.append({
                         "tool_call_id": tool_call.id,
@@ -1461,12 +1450,12 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
                         "name": function_name,
                         "content": function_response
                     })
-                    
+
                 except Exception as e:
                     print(f"   ✗ Error ejecutando {function_name}: {e}")
                     import traceback
                     traceback.print_exc()
-                    
+
                     # Agregar error como respuesta de la función
                     messages.append({
                         "tool_call_id": tool_call.id,
@@ -1474,22 +1463,22 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
                         "name": function_name,
                         "content": f"Error: {str(e)}"
                     })
-            
+
             # Segunda llamada a OpenAI con los resultados de las funciones
             print(f"\n🤖 Segunda llamada a OpenAI con resultados de funciones...")
             second_response = openai_client.chat.completions.create(
-                model="gpt-4-turbo-preview",
+                model="gpt-4.1",
                 messages=messages
             )
-            
+
             final_message = second_response.choices[0].message.content
         else:
             # No hay function calls, usar la respuesta directa
             final_message = response_message.content
-        
+
         print(f"\n✓ Respuesta generada: {final_message[:200]}...")
         return final_message
-        
+
     except Exception as e:
         print(f"✗ Error procesando con OpenAI: {e}")
         import traceback
@@ -1837,10 +1826,6 @@ async def root():
         },
         "chats_in_memory": len(message_store.messages)
     }
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
 if __name__ == "__main__":
