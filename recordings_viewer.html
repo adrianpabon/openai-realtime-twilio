@@ -419,7 +419,10 @@
 
     <script>
         // Configuración de la API
-        const API_BASE = window.location.origin;
+        // Detectar el base path desde la URL actual
+        const currentPath = window.location.pathname;
+        const basePath = currentPath.includes('/phone/') ? '/phone' : '';
+        const API_BASE = window.location.origin + basePath;
         let allRecordings = [];
 
         // Cargar grabaciones al iniciar
