@@ -399,6 +399,37 @@ async def get_recording_summary(recording_id: str):
         }
 
 
+@app.get("/recordings/{recording_id}/audio")
+async def get_recording_audio(recording_id: str):
+    """Sirve el archivo de audio WAV de una grabación específica"""
+    try:
+        audio_file = f"recordings/{recording_id}_audio.wav"
+
+        if not os.path.exists(audio_file):
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "status": "error",
+                    "message": "Audio no encontrado"
+                }
+            )
+
+        return FileResponse(
+            audio_file,
+            media_type="audio/wav",
+            filename=f"{recording_id}_audio.wav"
+        )
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": str(e)
+            }
+        )
+
+
 @app.delete("/recordings/{recording_id}")
 async def delete_recording(recording_id: str):
     """Elimina una grabación específica"""
@@ -406,16 +437,16 @@ async def delete_recording(recording_id: str):
         files_to_delete = [
             f"recordings/{recording_id}_conversation.json",
             f"recordings/{recording_id}_summary.txt",
-            f"recordings/{recording_id}_audio.bin"
+            f"recordings/{recording_id}_audio.wav"
         ]
-        
+
         deleted_files = []
-        
+
         for file_path in files_to_delete:
             if os.path.exists(file_path):
                 os.remove(file_path)
                 deleted_files.append(os.path.basename(file_path))
-        
+
         if deleted_files:
             return {
                 "status": "success",
@@ -427,7 +458,7 @@ async def delete_recording(recording_id: str):
                 "status": "error",
                 "message": "No se encontraron archivos para eliminar"
             }
-            
+
     except Exception as e:
         return {
             "status": "error",

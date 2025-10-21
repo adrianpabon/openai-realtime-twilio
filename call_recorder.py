@@ -108,16 +108,27 @@ class CallRecorder:
             
             results["conversation_file"] = conversation_file
             
-            # 2. Guardar audio chunks como archivo binario
+            # 2. Guardar audio chunks como archivo WAV reproducible
             if self.audio_chunks:
-                audio_file = os.path.join(self.recordings_dir, f"{base_filename}_audio.bin")
-                
-                with open(audio_file, 'wb') as f:
-                    for chunk in self.audio_chunks:
-                        f.write(chunk["data"])
-                
+                audio_file = os.path.join(self.recordings_dir, f"{base_filename}_audio.wav")
+
+                # Combinar todos los chunks de audio
+                audio_data = b''
+                for chunk in self.audio_chunks:
+                    audio_data += chunk["data"]
+
+                # Guardar como WAV
+                # OpenAI Realtime API usa PCM16 24kHz mono
+                with wave.open(audio_file, 'wb') as wav_file:
+                    wav_file.setnchannels(1)  # Mono
+                    wav_file.setsampwidth(2)  # 16-bit (2 bytes)
+                    wav_file.setframerate(24000)  # 24kHz
+                    wav_file.writeframes(audio_data)
+
                 results["audio_file"] = audio_file
                 results["audio_chunks"] = len(self.audio_chunks)
+
+                print(f"🎵 Audio guardado: {len(audio_data)} bytes → {audio_file}")
             
             # 3. Crear resumen de la grabación
             summary_file = os.path.join(self.recordings_dir, f"{base_filename}_summary.txt")
@@ -190,8 +201,8 @@ ARCHIVOS GENERADOS:
                         
                         # Verificar archivos relacionados
                         conversation_file = f"{base_name}_conversation.json"
-                        audio_file = f"{base_name}_audio.bin"
-                        
+                        audio_file = f"{base_name}_audio.wav"
+
                         recordings.append({
                             "timestamp": timestamp_str,
                             "call_id": call_id,

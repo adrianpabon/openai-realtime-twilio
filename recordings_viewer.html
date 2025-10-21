@@ -169,6 +169,15 @@
             background: #218838;
         }
 
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
         .btn-danger {
             background: #dc3545;
             color: white;
@@ -479,7 +488,14 @@
                 return;
             }
 
-            const recordingsHtml = recordings.map(recording => `
+            const recordingsHtml = recordings.map(recording => {
+                const hasAudio = recording.files && recording.files.audio;
+                const audioButton = hasAudio ?
+                    `<button class="btn btn-info" onclick="playAudio('${recording.base_name}')">
+                        🎵 Audio
+                    </button>` : '';
+
+                return `
                 <div class="recording-card" data-recording-id="${recording.base_name}">
                     <div class="recording-header">
                         <div>
@@ -487,6 +503,7 @@
                             <div class="recording-date">${formatDate(recording.timestamp)}</div>
                         </div>
                         <div class="recording-actions">
+                            ${audioButton}
                             <button class="btn btn-primary" onclick="toggleRecordingContent('${recording.base_name}')">
                                 👁️ Ver
                             </button>
@@ -508,7 +525,8 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             recordingsList.innerHTML = recordingsHtml;
         }
@@ -662,6 +680,31 @@
             }
         }
 
+        function playAudio(recordingId) {
+            const modal = document.getElementById('conversationModal');
+            const modalContent = document.getElementById('modalContent');
+
+            const audioUrl = `${API_BASE}/recordings/${recordingId}/audio`;
+
+            modalContent.innerHTML = `
+                <div class="summary-box">
+                    <div class="summary-title">🎵 Reproducción de Audio</div>
+                    <p><strong>Grabación:</strong> ${recordingId}</p>
+                    <div style="margin-top: 20px;">
+                        <audio controls autoplay style="width: 100%; max-width: 600px;">
+                            <source src="${audioUrl}" type="audio/wav">
+                            Tu navegador no soporta la reproducción de audio.
+                        </audio>
+                    </div>
+                    <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                        💡 Puedes usar los controles para reproducir, pausar y ajustar el volumen.
+                    </p>
+                </div>
+            `;
+
+            modal.style.display = 'block';
+        }
+
         async function deleteRecording(recordingId) {
             if (!confirm(`¿Estás seguro de que deseas eliminar la grabación ${recordingId}?\n\nEsta acción no se puede deshacer.`)) {
                 return;
@@ -671,9 +714,9 @@
                 const response = await fetch(`${API_BASE}/recordings/${recordingId}`, {
                     method: 'DELETE'
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.status === 'success') {
                     alert('✅ Grabación eliminada correctamente');
                     loadRecordings(); // Recargar la lista
