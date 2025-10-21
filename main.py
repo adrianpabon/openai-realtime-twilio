@@ -934,6 +934,7 @@ sys.path.insert(0, str(parent_dir))
 
 from function_manager import FunctionManager
 from functions import tools, available_functions
+from conversation_cache import conversation_cache
 import locale
 
 # Configuración de EvolutionAPI
@@ -1347,6 +1348,67 @@ Pasteur Laboratorios Clínicos
 - NO seas demasiado formal o robotica
 - NO uses muletillas de voz como "eee" o "mmm" (esto es texto, no voz)
 
+# REGLA CRÍTICA: Confirmación Antes de Acciones
+
+**IMPORTANTE - NUNCA ejecutes acciones sin confirmación explícita del usuario:**
+
+## Acciones que REQUIEREN confirmación:
+1. **Enviar correos** (`send_email_with_file`)
+2. **Crear citas** (`crear_cita`)
+3. **Eliminar citas** (`eliminar_cita`)
+
+## Flujo OBLIGATORIO para acciones:
+
+### Ejemplo 1: Envío de exámenes por correo
+❌ **INCORRECTO:**
+Usuario: "Envíame mis exámenes por correo"
+Asistente: *Ejecuta send_email_with_file* → "Listo, ya te envié los exámenes"
+
+✅ **CORRECTO:**
+Usuario: "Envíame mis exámenes por correo"
+Asistente: "Perfecto! Veo que tienes disponibles:
+- Examen de orina
+- Hemograma completo
+
+¿Confirmas que quieres que te los envíe a [correo]? Responde 'sí' o 'confirmo' para proceder."
+
+Usuario: "Sí, confirmo"
+Asistente: *Ejecuta send_email_with_file* → "Perfecto! Te acabo de enviar los exámenes a tu correo. Revisa tu bandeja de entrada."
+
+### Ejemplo 2: Crear cita
+❌ **INCORRECTO:**
+Asistente: *Verifica disponibilidad* → *Ejecuta crear_cita inmediatamente*
+
+✅ **CORRECTO:**
+Asistente: "Perfecto! Hay disponibilidad para el 25 de octubre a las 10:00 AM en Barranquilla para el examen de Hemograma.
+
+¿Confirmas que quieres agendar esta cita? Responde 'sí' o 'confirmo' para proceder."
+
+Usuario: "Sí"
+Asistente: *Ejecuta crear_cita* → "Excelente! Tu cita ha sido agendada para el 25 de octubre a las 10:00 AM en Barranquilla. Te llegará un correo de confirmación."
+
+### Ejemplo 3: Eliminar cita
+❌ **INCORRECTO:**
+Usuario: "Cancela mi cita"
+Asistente: *Ejecuta eliminar_cita inmediatamente*
+
+✅ **CORRECTO:**
+Usuario: "Cancela mi cita"
+Asistente: "Veo que tienes una cita programada para el 25 de octubre a las 10:00 AM en Barranquilla.
+
+¿Confirmas que quieres cancelar esta cita? Responde 'sí' o 'confirmo' para proceder."
+
+Usuario: "Sí"
+Asistente: *Ejecuta eliminar_cita* → "Tu cita ha sido cancelada exitosamente."
+
+## Palabras de confirmación válidas:
+- "sí", "si", "confirmo", "confirmar", "dale", "ok", "okay", "procede", "adelante", "claro"
+
+## Cómo detectar si el usuario ya confirmó:
+- Revisa el mensaje anterior del asistente
+- Si el asistente pidió confirmación y el usuario responde con palabra de confirmación → Ejecuta la acción
+- Si no hay solicitud de confirmación previa → Pide confirmación primero
+
 # Formato de Respuestas para WhatsApp
 - Usa saltos de línea para separar secciones
 - Usa emojis relevantes pero profesionales
@@ -1402,22 +1464,35 @@ async def send_whatsapp_message(remote_jid: str, message: str) -> bool:
 
 async def process_message_with_openai(conversation_history: List[Dict[str, str]], user_message: str, remote_jid: str) -> str:
     """
-    Procesa un mensaje usando OpenAI API con function calling
+    Procesa un mensaje usando OpenAI API con function calling y caché Redis
     """
     try:
-        # Preparar mensajes para OpenAI
+        # 1. Intentar obtener conversación del caché Redis
+        cached_conversation = conversation_cache.get_conversation(remote_jid)
+
+        if cached_conversation:
+            # Usar conversación en caché (incluye resultados de funciones previas)
+            print(f"📥 Usando conversación en caché ({len(cached_conversation)} mensajes)")
+            conversation_to_use = cached_conversation
+        else:
+            # Crear nueva conversación con los mensajes recientes de WhatsApp
+            print(f"📭 No hay caché, creando nueva conversación con {len(conversation_history)} mensajes")
+            conversation_to_use = conversation_history.copy()
+
+        # 2. Agregar mensaje actual del usuario a la conversación
+        conversation_to_use.append({"role": "user", "content": user_message})
+
+        # 3. Preparar mensajes para OpenAI
         messages = [
             {"role": "system", "content": get_text_assistant_prompt()}
         ]
-
-        # Agregar historial de conversación
-        messages.extend(conversation_history)
-
-        # Agregar mensaje actual del usuario
-        messages.append({"role": "user", "content": user_message})
+        messages.extend(conversation_to_use)
 
         print(f"\n🤖 Procesando con OpenAI...")
         print(f"📝 Mensajes enviados: {len(messages)}")
+        print(f"   - System: 1")
+        print(f"   - Conversación: {len(conversation_to_use)}")
+        print(f"   - Total: {len(messages)}")
 
         # Convertir tools al formato de OpenAI Chat Completions
         openai_tools = []
@@ -1525,7 +1600,35 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
             # No hay function calls, usar la respuesta directa
             final_message = response_message.content
 
+        # 4. Agregar respuesta del asistente a la conversación
+        conversation_to_use.append({"role": "assistant", "content": final_message})
+
+        # 5. Guardar conversación actualizada en Redis (con todos los mensajes incluyendo resultados de funciones)
+        # Nota: conversation_to_use ya incluye el mensaje del usuario y la respuesta del asistente
+        # Los resultados de las funciones están en 'messages' pero no los guardamos explícitamente
+        # porque el LLM ya los procesó y generó la respuesta final
+
+        # Construir conversación limpia para Redis (sin system prompt, solo user/assistant)
+        clean_conversation = []
+        for msg in messages[1:]:  # Saltar system prompt
+            if msg.get("role") in ["user", "assistant"]:
+                clean_conversation.append({
+                    "role": msg["role"],
+                    "content": msg.get("content", "")
+                })
+            elif msg.get("role") == "tool":
+                # Guardar resultados de funciones en el contexto
+                clean_conversation.append({
+                    "role": "tool",
+                    "name": msg.get("name"),
+                    "content": msg.get("content")
+                })
+
+        conversation_cache.save_conversation(remote_jid, clean_conversation)
+
         print(f"\n✓ Respuesta generada: {final_message[:200]}...")
+        print(f"💾 Conversación guardada en Redis con {len(clean_conversation)} mensajes")
+
         return final_message
 
     except Exception as e:
