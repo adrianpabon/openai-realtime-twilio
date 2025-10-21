@@ -655,7 +655,6 @@ IMPORTANTE al agendar citas:
         "instructions": system_prompt,
         "type": "realtime",
         "model": "gpt-realtime",
-        "modalities": ["audio"],  # Habilitar ambas modalidades
         "audio": {
             "output": {"voice": voice}
         },
