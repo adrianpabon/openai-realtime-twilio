@@ -900,10 +900,6 @@ from function_manager import FunctionManager
 from functions import tools, available_functions
 import locale
 
-
-
-app = FastAPI()
-
 # Configuración de EvolutionAPI
 
 
