@@ -30,7 +30,9 @@ class CallRecorder:
     
     async def process_audio_chunk(self, message_data: dict):
         """Procesa chunks de audio del WebSocket"""
-        if message_data.get("type") == "response.audio.delta":
+        message_type = message_data.get("type")
+
+        if message_type == "response.audio.delta":
             audio_data = message_data.get("delta", "")
             if audio_data:
                 # Decodificar audio base64 y almacenar
@@ -41,8 +43,13 @@ class CallRecorder:
                         "source": "assistant",
                         "data": audio_bytes
                     })
+                    # Log cada 10 chunks para no saturar
+                    if len(self.audio_chunks) % 10 == 0:
+                        print(f"🎵 Audio chunks capturados: {len(self.audio_chunks)}")
                 except Exception as e:
                     print(f"⚠️ Error procesando audio: {e}")
+            else:
+                print(f"⚠️ response.audio.delta sin data")
     
     async def log_conversation(self, message_data: dict):
         """Registra la conversación en texto"""
@@ -83,10 +90,12 @@ class CallRecorder:
         """Guarda la grabación completa"""
         if not self.current_call_id:
             return {"error": "No hay grabación activa"}
-        
+
+        print(f"💾 Guardando grabación - Audio chunks: {len(self.audio_chunks)}, Conversación: {len(self.conversation_log)}")
+
         timestamp_str = self.start_time.strftime("%Y%m%d_%H%M%S")
         base_filename = f"{timestamp_str}_{self.current_call_id}"
-        
+
         results = {}
         
         try:
