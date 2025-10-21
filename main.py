@@ -1434,6 +1434,21 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
 
                     function_to_call = available_functions[function_name]
 
+                    # Lista de funciones que requieren db_path
+                    db_functions = {
+                        'listar_usuarios', 'obtener_usuario', 'crear_usuario', 'actualizar_usuario',
+                        'eliminar_usuario', 'obtener_examenes_medicos', 'crear_examen_medico',
+                        'actualizar_examen_medico', 'eliminar_examen_medico', 'obtener_cita_examen_medico',
+                        'crear_cita_examen_medico', 'verificar_disponibilidad_citas', 'obtener_citas_activas_usuario',
+                        'crear_cita', 'obtener_cita_por_id', 'listar_todas_citas', 'eliminar_cita'
+                    }
+
+                    # Inyectar db_path si la función lo requiere
+                    if function_name in db_functions:
+                        db_path = os.path.join(os.path.dirname(__file__), "database.db")
+                        function_args['db_path'] = db_path
+                        print(f"   📁 Inyectando db_path: {db_path}")
+
                     # Ejecutar la función con los argumentos
                     function_response = function_to_call(**function_args)
 
