@@ -203,8 +203,10 @@ El sistema imprime logs detallados:
 📝 Mensajes enviados: 3
 🔧 Se detectaron 2 function calls
    📞 Ejecutando: listar_usuarios
+   💾 Agregando db_path a listar_usuarios
    ✓ Resultado: [...]
    📞 Ejecutando: obtener_examenes_medicos
+   💾 Agregando db_path a obtener_examenes_medicos
    ✓ Resultado: [...]
 🤖 Segunda llamada a OpenAI con resultados de funciones...
 ✓ Respuesta generada: Hola! 👋...
@@ -212,6 +214,8 @@ El sistema imprime logs detallados:
 ✓ Mensaje enviado exitosamente
 ✓ Conversación completada exitosamente
 ```
+
+**Nota:** El mensaje `💾 Agregando db_path` aparece solo para funciones de base de datos, confirmando que se está usando la base de datos correcta.
 
 ## 🔒 Seguridad
 
