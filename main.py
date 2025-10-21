@@ -197,7 +197,7 @@ async def websocket_task_async(call_id: str) -> None:
 
 
 # Endpoint principal para webhooks
-@app.post("/webhook")
+@app.post("/webhook/call")
 async def webhook(request: Request):
     """Maneja los webhooks de OpenAI"""
     try:
