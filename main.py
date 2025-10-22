@@ -1521,8 +1521,23 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
         if tool_calls:
             print(f"\n🔧 Se detectaron {len(tool_calls)} function calls")
 
-            # Agregar la respuesta del asistente a los mensajes
-            messages.append(response_message)
+            # Convertir response_message a dict para agregarlo a messages
+            # El objeto ChatCompletionMessage necesita ser serializado
+            response_message_dict = {
+                "role": "assistant",
+                "content": response_message.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    } for tc in tool_calls
+                ]
+            }
+            messages.append(response_message_dict)
 
             # Ejecutar cada function call
             for tool_call in tool_calls:
