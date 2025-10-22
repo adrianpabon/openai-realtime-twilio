@@ -1696,7 +1696,15 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
         if cached_conversation:
             # Usar conversación en caché (incluye resultados de funciones previas)
             print(f"📥 Usando conversación en caché ({len(cached_conversation)} mensajes)")
-            conversation_to_use = cached_conversation
+
+            # Validar y limpiar mensajes del caché (asegurar que no haya content: null)
+            conversation_to_use = []
+            for msg in cached_conversation:
+                cleaned_msg = msg.copy()
+                # Asegurar que content nunca sea None
+                if "content" in cleaned_msg and cleaned_msg["content"] is None:
+                    cleaned_msg["content"] = ""
+                conversation_to_use.append(cleaned_msg)
         else:
             # Crear nueva conversación con los mensajes recientes de WhatsApp
             print(f"📭 No hay caché, creando nueva conversación con {len(conversation_history)} mensajes")
@@ -1846,20 +1854,25 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
         # Los resultados de las funciones están en 'messages' pero no los guardamos explícitamente
         # porque el LLM ya los procesó y generó la respuesta final
 
-        # Construir conversación limpia para Redis (sin system prompt, solo user/assistant)
+        # Construir conversación limpia para Redis (sin system prompt, solo user/assistant/tool)
         clean_conversation = []
         for msg in messages[1:]:  # Saltar system prompt
             if msg.get("role") in ["user", "assistant"]:
+                # Asegurar que content nunca sea None/null
+                content = msg.get("content")
+                if content is None:
+                    content = ""
+
                 clean_conversation.append({
                     "role": msg["role"],
-                    "content": msg.get("content", "")
+                    "content": content
                 })
             elif msg.get("role") == "tool":
                 # Guardar resultados de funciones en el contexto
                 clean_conversation.append({
                     "role": "tool",
                     "name": msg.get("name"),
-                    "content": msg.get("content")
+                    "content": msg.get("content", "")
                 })
 
         conversation_cache.save_conversation(remote_jid, clean_conversation)
