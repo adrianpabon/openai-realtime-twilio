@@ -1857,21 +1857,29 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
         # Construir conversación limpia para Redis (sin system prompt, solo user/assistant/tool)
         clean_conversation = []
         for msg in messages[1:]:  # Saltar system prompt
-            if msg.get("role") in ["user", "assistant"]:
-                # Asegurar que content nunca sea None/null
-                content = msg.get("content")
-                if content is None:
-                    content = ""
-
+            if msg.get("role") == "user":
                 clean_conversation.append({
-                    "role": msg["role"],
-                    "content": content
+                    "role": "user",
+                    "content": msg.get("content", "")
                 })
+            elif msg.get("role") == "assistant":
+                # Para assistant, incluir tool_calls si existen
+                assistant_msg = {
+                    "role": "assistant",
+                    "content": msg.get("content") or ""  # Convertir None a ""
+                }
+
+                # Si tiene tool_calls, incluirlos
+                if msg.get("tool_calls"):
+                    assistant_msg["tool_calls"] = msg.get("tool_calls")
+
+                clean_conversation.append(assistant_msg)
+
             elif msg.get("role") == "tool":
-                # Guardar resultados de funciones en el contexto
+                # Guardar resultados de funciones con tool_call_id
                 clean_conversation.append({
                     "role": "tool",
-                    "name": msg.get("name"),
+                    "tool_call_id": msg.get("tool_call_id"),
                     "content": msg.get("content", "")
                 })
 
