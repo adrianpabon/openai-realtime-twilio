@@ -1,2 +1,5 @@
 .env
 database.db
+
+__pycache__/
+pruebas/ 

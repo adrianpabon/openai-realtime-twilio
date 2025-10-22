@@ -1,0 +1,44 @@
+CHEQUEO GENERAL
+Requiere ayuno
+
+- Hemograma
+- Glicemia
+- Colesterol Total
+- Colesterol HDL
+- Colesterol LDL
+- Triglicéridos
+Valor: $ 68.000 COP
+
+
+HEPATORENAL
+Consulta condiciones
+ 
+- Alanina Aminotransferasa
+- Aspartato Aminotransferasa
+- Bilirrubinas 
+- Fosfatasa Alcalina
+- Creatinina
+- Nitrógeno Ureico 
+Valor: $ 67.000 COP 
+
+
+CARDIOSALUD
+Consulta condiciones
+
+- Cloro 
+- Sodio
+- Potasio 
+- Creatinina
+- Uroanálisis
+- Nitrógeno Ureico  
+Valor: $62.000 COP
+
+
+SEXVITAL
+Consulta condiciones
+
+- VIH
+- Hepatitis B 
+- Sífilis 
+Valor: $ 95.000 COP
+
