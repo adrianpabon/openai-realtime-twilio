@@ -1525,7 +1525,7 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
             # El objeto ChatCompletionMessage necesita ser serializado
             response_message_dict = {
                 "role": "assistant",
-                "content": response_message.content,
+                "content": response_message.content or "",  # OpenAI no acepta null, usar string vacío
                 "tool_calls": [
                     {
                         "id": tc.id,
@@ -1743,7 +1743,7 @@ async def handle_message(data: Dict[str, Any]):
                     msg_key = m.get("key", {})
                     msg_content = m.get("message", {})
                     is_from_me = msg_key.get("fromMe", False)
-                    sender_name = "Usuario" if is_from_me else m.get("pushName", "Cliente")
+                    sender_name = "Asistente (Juliana)" if is_from_me else m.get("pushName", "Cliente")
                     text = extract_message_text(msg_content)
                     context_lines.append(f"{sender_name}: {text}")
             
