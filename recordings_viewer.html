@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📹 Grabaciones de Llamadas - Laboratorio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .controls {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .search-box {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            width: 300px;
+            font-size: 16px;
+        }
+
+        .refresh-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #218838;
+        }
+
+        .recordings-list {
+            padding: 20px;
+        }
+
+        .recording-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .recording-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .recording-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .recording-title {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+
+        .recording-date {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .recording-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .recording-content {
+            padding: 20px;
+            display: none;
+        }
+
+        .recording-content.show {
+            display: block;
+        }
+
+        .conversation-item {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .conversation-item.user {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+
+        .conversation-item.assistant {
+            background: #f3e5f5;
+            border-left-color: #9c27b0;
+        }
+
+        .speaker {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .user .speaker {
+            color: #1976d2;
+        }
+
+        .assistant .speaker {
+            color: #7b1fa2;
+        }
+
+        .timestamp {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .message-text {
+            line-height: 1.4;
+        }
+
+        .summary-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px;
+            text-align: center;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .recording-header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .recording-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📹 Grabaciones de Llamadas</h1>
+            <p>Sistema de gestión de grabaciones del laboratorio</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="totalRecordings">0</div>
+                <div class="stat-label">Total Grabaciones</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="todayRecordings">0</div>
+                <div class="stat-label">Hoy</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="averageDuration">0</div>
+                <div class="stat-label">Duración Promedio (min)</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Buscar por Call ID o fecha...">
+            <button class="refresh-btn" onclick="loadRecordings()">🔄 Actualizar</button>
+        </div>
+
+        <div class="recordings-list" id="recordingsList">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                Cargando grabaciones...
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para mostrar conversación completa -->
+    <div id="conversationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💬 Conversación Completa</h2>
+                <button class="close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Modal para mostrar resumen -->
+    <div id="summaryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📊 Resumen de Llamada</h2>
+                <button class="close" onclick="closeSummaryModal()">&times;</button>
+            </div>
+            <div id="summaryModalContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de la API
+        // Detectar el base path desde la URL actual
+        const currentPath = window.location.pathname;
+        const basePath = currentPath.includes('/phone/') ? '/phone' : '';
+        const API_BASE = window.location.origin + basePath;
+        let allRecordings = [];
+
+        // Cargar grabaciones al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecordings();
+            
+            // Búsqueda en tiempo real
+            document.getElementById('searchBox').addEventListener('input', function() {
+                filterRecordings(this.value);
+            });
+        });
+
+        async function loadRecordings() {
+            const recordingsList = document.getElementById('recordingsList');
+            
+            try {
+                recordingsList.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        Cargando grabaciones...
+                    </div>
+                `;
+
+                const response = await fetch(`${API_BASE}/recordings`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    allRecordings = data.recordings;
+                    displayRecordings(allRecordings);
+                    updateStats(allRecordings);
+                } else {
+                    throw new Error(data.message || 'Error desconocido');
+                }
+
+            } catch (error) {
+                recordingsList.innerHTML = `
+                    <div class="error">
+                        ❌ Error cargando grabaciones: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function displayRecordings(recordings) {
+            const recordingsList = document.getElementById('recordingsList');
+
+            if (recordings.length === 0) {
+                recordingsList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>📭 No hay grabaciones</h3>
+                        <p>Las grabaciones aparecerán aquí automáticamente cuando se realicen llamadas.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const recordingsHtml = recordings.map(recording => {
+                const hasAudio = recording.files && recording.files.audio;
+                const audioButton = hasAudio ?
+                    `<button class="btn btn-info" onclick="playAudio('${recording.base_name}')">
+                        🎵 Audio
+                    </button>` : '';
+
+                return `
+                <div class="recording-card" data-recording-id="${recording.base_name}">
+                    <div class="recording-header">
+                        <div>
+                            <div class="recording-title">📞 ${recording.call_id}</div>
+                            <div class="recording-date">${formatDate(recording.timestamp)}</div>
+                        </div>
+                        <div class="recording-actions">
+                            ${audioButton}
+                            <button class="btn btn-primary" onclick="toggleRecordingContent('${recording.base_name}')">
+                                👁️ Ver
+                            </button>
+                            <button class="btn btn-success" onclick="showFullConversation('${recording.base_name}')">
+                                💬 Conversación
+                            </button>
+                            <button class="btn btn-success" onclick="showSummary('${recording.base_name}')">
+                                📊 Resumen
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteRecording('${recording.base_name}')">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="recording-content" id="content-${recording.base_name}">
+                        <div class="loading">
+                            <div class="loading-spinner"></div>
+                            Cargando conversación...
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            recordingsList.innerHTML = recordingsHtml;
+        }
+
+        function updateStats(recordings) {
+            document.getElementById('totalRecordings').textContent = recordings.length;
+            
+            // Contar grabaciones de hoy
+            const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+            const todayCount = recordings.filter(r => r.timestamp.startsWith(today)).length;
+            document.getElementById('todayRecordings').textContent = todayCount;
+            
+            // Duración promedio (placeholder - necesitaría datos adicionales)
+            document.getElementById('averageDuration').textContent = '~5';
+        }
+
+        function formatDate(timestamp) {
+            if (timestamp.length >= 8) {
+                const year = timestamp.substring(0, 4);
+                const month = timestamp.substring(4, 6);
+                const day = timestamp.substring(6, 8);
+                const time = timestamp.length > 8 ? 
+                    ` ${timestamp.substring(9, 11)}:${timestamp.substring(11, 13)}` : '';
+                
+                return `${day}/${month}/${year}${time}`;
+            }
+            return timestamp;
+        }
+
+        async function toggleRecordingContent(recordingId) {
+            const contentDiv = document.getElementById(`content-${recordingId}`);
+            
+            if (contentDiv.classList.contains('show')) {
+                contentDiv.classList.remove('show');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/recordings/${recordingId}/conversation`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const conversation = data.conversation.conversation || [];
+                    
+                    const conversationHtml = conversation
+                        .filter(item => item.speaker && item.text)
+                        .slice(0, 5) // Solo mostrar los primeros 5 mensajes
+                        .map(item => `
+                            <div class="conversation-item ${item.speaker}">
+                                <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+                                <div class="speaker">${item.speaker === 'user' ? '👤 Usuario' : '🤖 Asistente'}</div>
+                                <div class="message-text">${item.text}</div>
+                            </div>
+                        `).join('');
+
+                    contentDiv.innerHTML = conversationHtml + 
+                        (conversation.length > 5 ? 
+                            `<p style="text-align: center; margin-top: 15px;">
+                                <button class="btn btn-primary" onclick="showFullConversation('${recordingId}')">
+                                    Ver conversación completa (${conversation.length} mensajes)
+                                </button>
+                            </p>` : '');
+                    
+                    contentDiv.classList.add('show');
+                } else {
+                    throw new Error(data.message);
+                }
+
+            } catch (error) {
+                contentDiv.innerHTML = `<div class="error">Error cargando conversación: ${error.message}</div>`;
+                contentDiv.classList.add('show');
+            }
+        }
+
+        async function showFullConversation(recordingId) {
+            const modal = document.getElementById('conversationModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalContent.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Cargando conversación completa...
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE}/recordings/${recordingId}/conversation`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const conversationData = data.conversation;
+                    const conversation = conversationData.conversation || [];
+                    
+                    const summaryHtml = `
+                        <div class="summary-box">
+                            <div class="summary-title">📋 Información de la Llamada</div>
+                            <p><strong>Call ID:</strong> ${conversationData.call_id}</p>
+                            <p><strong>Inicio:</strong> ${new Date(conversationData.start_time).toLocaleString()}</p>
+                            <p><strong>Duración:</strong> ${Math.round(conversationData.duration_seconds)} segundos</p>
+                            <p><strong>Total mensajes:</strong> ${conversationData.total_messages}</p>
+                        </div>
+                    `;
+                    
+                    const conversationHtml = conversation
+                        .filter(item => item.speaker && item.text)
+                        .map(item => `
+                            <div class="conversation-item ${item.speaker}">
+                                <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+                                <div class="speaker">${item.speaker === 'user' ? '👤 Usuario' : '🤖 Asistente'}</div>
+                                <div class="message-text">${item.text}</div>
+                            </div>
+                        `).join('');
+
+                    modalContent.innerHTML = summaryHtml + conversationHtml;
+                } else {
+                    throw new Error(data.message);
+                }
+
+            } catch (error) {
+                modalContent.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function showSummary(recordingId) {
+            const modal = document.getElementById('summaryModal');
+            const modalContent = document.getElementById('summaryModalContent');
+            
+            modalContent.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Cargando resumen...
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE}/recordings/${recordingId}/summary`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    modalContent.innerHTML = `<pre style="white-space: pre-wrap; line-height: 1.6;">${data.summary}</pre>`;
+                } else {
+                    throw new Error(data.message);
+                }
+
+            } catch (error) {
+                modalContent.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function playAudio(recordingId) {
+            const modal = document.getElementById('conversationModal');
+            const modalContent = document.getElementById('modalContent');
+
+            const audioUrl = `${API_BASE}/recordings/${recordingId}/audio`;
+
+            modalContent.innerHTML = `
+                <div class="summary-box">
+                    <div class="summary-title">🎵 Reproducción de Audio</div>
+                    <p><strong>Grabación:</strong> ${recordingId}</p>
+                    <div style="margin-top: 20px;">
+                        <audio controls autoplay style="width: 100%; max-width: 600px;">
+                            <source src="${audioUrl}" type="audio/wav">
+                            Tu navegador no soporta la reproducción de audio.
+                        </audio>
+                    </div>
+                    <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                        💡 Puedes usar los controles para reproducir, pausar y ajustar el volumen.
+                    </p>
+                </div>
+            `;
+
+            modal.style.display = 'block';
+        }
+
+        async function deleteRecording(recordingId) {
+            if (!confirm(`¿Estás seguro de que deseas eliminar la grabación ${recordingId}?\n\nEsta acción no se puede deshacer.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/recordings/${recordingId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    alert('✅ Grabación eliminada correctamente');
+                    loadRecordings(); // Recargar la lista
+                } else {
+                    throw new Error(data.message);
+                }
+
+            } catch (error) {
+                alert(`❌ Error eliminando grabación: ${error.message}`);
+            }
+        }
+
+        function filterRecordings(searchTerm) {
+            const filtered = allRecordings.filter(recording => 
+                recording.call_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                recording.timestamp.includes(searchTerm)
+            );
+            displayRecordings(filtered);
+        }
+
+        function closeModal() {
+            document.getElementById('conversationModal').style.display = 'none';
+        }
+
+        function closeSummaryModal() {
+            document.getElementById('summaryModal').style.display = 'none';
+        }
+
+        // Cerrar modales al hacer clic fuera
+        window.onclick = function(event) {
+            const conversationModal = document.getElementById('conversationModal');
+            const summaryModal = document.getElementById('summaryModal');
+            
+            if (event.target === conversationModal) {
+                conversationModal.style.display = 'none';
+            }
+            if (event.target === summaryModal) {
+                summaryModal.style.display = 'none';
+            }
+        }
+
+        // Auto-refresh cada 30 segundos
+        setInterval(loadRecordings, 30000);
+    </script>
+</body>
+</html>
