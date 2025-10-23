@@ -14,9 +14,39 @@ import threading
 from function_manager import FunctionManager
 from database import obtener_cita_por_id, listar_todas_citas
 from call_recorder import call_recorder
+from fastapi import FastAPI, Request, HTTPException
+from pydantic import BaseModel
+from typing import Optional, Dict, Any, List
+import httpx
+from datetime import datetime
+import json
+import os
+from dotenv import load_dotenv
+from openai import OpenAI
+import sys
+import pathlib
+from function_manager import FunctionManager
+from functions import tools, available_functions
+from conversation_cache import conversation_cache
+import locale
+
 
 
 load_dotenv()
+
+# Agregar el directorio padre al path para importar módulos
+parent_dir = pathlib.Path(__file__).parent.parent
+sys.path.insert(0, str(parent_dir))
+
+
+# Configuración de EvolutionAPI
+EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL")  
+EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
+INSTANCE_NAME = os.getenv("INSTANCE_NAME")
+
+# Configuración de OpenAI
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+function_manager = FunctionManager()
 
 app = FastAPI()
 
@@ -917,37 +947,7 @@ async def listar_citas_html():
 
 ########################################################
 
-from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
-import httpx
-from datetime import datetime
-import json
-import os
-from dotenv import load_dotenv
-from openai import OpenAI
-import sys
-import pathlib
 
-# Agregar el directorio padre al path para importar módulos
-parent_dir = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(parent_dir))
-
-from function_manager import FunctionManager
-from functions import tools, available_functions
-from conversation_cache import conversation_cache
-import locale
-
-# Configuración de EvolutionAPI
-
-
-EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL")  
-EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
-INSTANCE_NAME = os.getenv("INSTANCE_NAME")
-
-# Configuración de OpenAI
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-function_manager = FunctionManager()
 
 # Configurar locale en español
 try:
@@ -1029,28 +1029,6 @@ async def get_last_messages(remote_jid: str, limit: int = 5) -> List[Dict]:
         traceback.print_exc()
         return []
 
-# Store local como backup
-class MessageStore:
-    """Almacena mensajes en memoria para crear historial"""
-    def __init__(self, max_messages_per_chat: int = 50):
-        self.messages: Dict[str, List[Dict]] = {}
-        self.max_messages = max_messages_per_chat
-    
-    def add_message(self, remote_jid: str, message_data: Dict):
-        if remote_jid not in self.messages:
-            self.messages[remote_jid] = []
-        
-        self.messages[remote_jid].append(message_data)
-        
-        # Mantener solo los últimos N mensajes
-        if len(self.messages[remote_jid]) > self.max_messages:
-            self.messages[remote_jid] = self.messages[remote_jid][-self.max_messages:]
-    
-    def get_messages(self, remote_jid: str, limit: int = 5) -> List[Dict]:
-        messages = self.messages.get(remote_jid, [])
-        return messages[-limit:] if messages else []
-
-message_store = MessageStore(max_messages_per_chat=50)
 
 # La función get_text_assistant_prompt ha sido movida a whatsapp_config.py
 # Importada como get_whatsapp_prompt al inicio del archivo
@@ -1083,45 +1061,42 @@ async def send_whatsapp_message(remote_jid: str, message: str) -> bool:
         traceback.print_exc()
         return False
 
-async def process_message_with_openai(conversation_history: List[Dict[str, str]], user_message: str, remote_jid: str) -> str:
+async def process_message_with_openai(user_message: str, remote_jid: str) -> str:
     """
-    Procesa un mensaje usando OpenAI API con function calling y caché Redis
+    Procesa un mensaje usando OpenAI API con function calling y caché Redis.
+    El historial de conversación se obtiene automáticamente desde Redis.
     """
     try:
-        # 1. Intentar obtener conversación del caché Redis
+        # 1. Obtener conversación del caché Redis (incluye tool_calls y tool responses)
         cached_conversation = conversation_cache.get_conversation(remote_jid)
 
+        # 2. Preparar mensajes para OpenAI
+        # Empezamos con el system prompt
+        messages = [
+            {"role": "system", "content": get_whatsapp_prompt()}
+        ]
+
+        # 3. Agregar conversación desde Redis (si existe)
         if cached_conversation:
-            # Usar conversación en caché (incluye resultados de funciones previas)
             print(f"📥 Usando conversación en caché ({len(cached_conversation)} mensajes)")
 
             # Validar y limpiar mensajes del caché (asegurar que no haya content: null)
-            conversation_to_use = []
             for msg in cached_conversation:
                 cleaned_msg = msg.copy()
                 # Asegurar que content nunca sea None
                 if "content" in cleaned_msg and cleaned_msg["content"] is None:
                     cleaned_msg["content"] = ""
-                conversation_to_use.append(cleaned_msg)
+                messages.append(cleaned_msg)
         else:
-            # Crear nueva conversación con los mensajes recientes de WhatsApp
-            print(f"📭 No hay caché, creando nueva conversación con {len(conversation_history)} mensajes")
-            conversation_to_use = conversation_history.copy()
+            print(f"📭 No hay caché, iniciando nueva conversación")
 
-        # 2. Agregar mensaje actual del usuario a la conversación
-        conversation_to_use.append({"role": "user", "content": user_message})
-
-        # 3. Preparar mensajes para OpenAI
-        messages = [
-            {"role": "system", "content": get_whatsapp_prompt()}
-        ]
-        messages.extend(conversation_to_use)
+        # 4. Agregar mensaje actual del usuario
+        messages.append({"role": "user", "content": user_message})
 
         print(f"\n🤖 Procesando con OpenAI...")
-        print(f"📝 Mensajes enviados: {len(messages)}")
-        print(f"   - System: 1")
-        print(f"   - Conversación: {len(conversation_to_use)}")
-        print(f"   - Total: {len(messages)}")
+        print(f"📝 Total de mensajes enviados: {len(messages)}")
+        print(f"   - System prompt: 1")
+        print(f"   - Conversación + nuevo mensaje: {len(messages) - 1}")
 
         # Convertir tools al formato de OpenAI Chat Completions
         openai_tools = []
@@ -1215,7 +1190,6 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
                     messages.append({
                         "tool_call_id": tool_call.id,
                         "role": "tool",
-                        "name": function_name,
                         "content": function_response
                     })
 
@@ -1228,7 +1202,6 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
                     messages.append({
                         "tool_call_id": tool_call.id,
                         "role": "tool",
-                        "name": function_name,
                         "content": f"Error: {str(e)}"
                     })
 
@@ -1244,47 +1217,15 @@ async def process_message_with_openai(conversation_history: List[Dict[str, str]]
             # No hay function calls, usar la respuesta directa
             final_message = response_message.content
 
-        # 4. Agregar respuesta del asistente a la conversación
-        conversation_to_use.append({"role": "assistant", "content": final_message})
+        # 4. Guardar conversación actualizada en Redis
+        # Guardamos messages[1:] que es toda la conversación sin el system prompt
+        # Esto incluye: user, assistant, tool_calls, tool responses
+        conversation_to_save = messages[1:]  # Excluir system prompt (índice 0)
 
-        # 5. Guardar conversación actualizada en Redis (con todos los mensajes incluyendo resultados de funciones)
-        # Nota: conversation_to_use ya incluye el mensaje del usuario y la respuesta del asistente
-        # Los resultados de las funciones están en 'messages' pero no los guardamos explícitamente
-        # porque el LLM ya los procesó y generó la respuesta final
-
-        # Construir conversación limpia para Redis (sin system prompt, solo user/assistant/tool)
-        clean_conversation = []
-        for msg in messages[1:]:  # Saltar system prompt
-            if msg.get("role") == "user":
-                clean_conversation.append({
-                    "role": "user",
-                    "content": msg.get("content", "")
-                })
-            elif msg.get("role") == "assistant":
-                # Para assistant, incluir tool_calls si existen
-                assistant_msg = {
-                    "role": "assistant",
-                    "content": msg.get("content") or ""  # Convertir None a ""
-                }
-
-                # Si tiene tool_calls, incluirlos
-                if msg.get("tool_calls"):
-                    assistant_msg["tool_calls"] = msg.get("tool_calls")
-
-                clean_conversation.append(assistant_msg)
-
-            elif msg.get("role") == "tool":
-                # Guardar resultados de funciones con tool_call_id
-                clean_conversation.append({
-                    "role": "tool",
-                    "tool_call_id": msg.get("tool_call_id"),
-                    "content": msg.get("content", "")
-                })
-
-        conversation_cache.save_conversation(remote_jid, clean_conversation)
+        conversation_cache.save_conversation(remote_jid, conversation_to_save)
 
         print(f"\n✓ Respuesta generada: {final_message[:200]}...")
-        print(f"💾 Conversación guardada en Redis con {len(clean_conversation)} mensajes")
+        print(f"💾 Conversación guardada en Redis con {len(conversation_to_save)} mensajes")
 
         return final_message
 
@@ -1323,16 +1264,7 @@ async def handle_message(data: Dict[str, Any]):
         from_me = key.get("fromMe", False)
         message_timestamp = data.get("messageTimestamp", int(datetime.now().timestamp()))
         push_name = data.get("pushName", "Desconocido")
-        
-        # Guardar mensaje en el store local
-        message_store.add_message(remote_jid, {
-            "key": key,
-            "message": message,
-            "messageTimestamp": message_timestamp,
-            "fromMe": from_me,
-            "pushName": push_name
-        })
-        
+
         # Extraer el texto del mensaje actual
         text = extract_message_text(message)
         
@@ -1388,49 +1320,31 @@ async def handle_message(data: Dict[str, Any]):
                     sender_name = "Asistente (Juliana)" if is_from_me else m.get("pushName", "Cliente")
                     text = extract_message_text(msg_content)
                     context_lines.append(f"{sender_name}: {text}")
-            
-            context = "\n".join(context_lines)
+            co
+            ntext = "\n".join(context_lines)
             print(f"\n📝 Contexto de la conversación:\n{'-'*50}")
             print(context)
             print(f"{'-'*50}\n")
             
             # Solo responder si el mensaje NO es de nosotros
             if not from_me:
-                # Preparar historial de conversación para OpenAI
-                conversation_history = []
-                for m in sorted_messages[:-1]:  # Excluir el mensaje actual que ya se agregará
-                    if isinstance(m, dict):
-                        msg_key = m.get("key", {})
-                        msg_content = m.get("message", {})
-                        is_from_me_hist = msg_key.get("fromMe", False)
-                        msg_text = extract_message_text(msg_content)
-                        
-                        # Solo agregar mensajes con texto válido
-                        if msg_text and not msg_text.startswith("["):
-                            role = "assistant" if is_from_me_hist else "user"
-                            conversation_history.append({
-                                "role": role,
-                                "content": msg_text
-                            })
-                
                 # Extraer texto del mensaje actual
                 current_message_text = extract_message_text(message)
-                
+
                 # Solo procesar si el mensaje tiene texto válido
                 if current_message_text and not current_message_text.startswith("["):
                     print(f"\n🚀 Enviando mensaje a OpenAI para procesamiento...")
-                    
-                    # Procesar con OpenAI
+
+                    # Procesar con OpenAI (el historial viene de Redis)
                     response_text = await process_message_with_openai(
-                        conversation_history=conversation_history,
                         user_message=current_message_text,
                         remote_jid=remote_jid
                     )
-                    
+
                     # Enviar respuesta por WhatsApp
                     print(f"\n📤 Enviando respuesta por WhatsApp...")
                     success = await send_whatsapp_message(remote_jid, response_text)
-                    
+
                     if success:
                         print(f"✓ Conversación completada exitosamente")
                     else:
@@ -1442,50 +1356,27 @@ async def handle_message(data: Dict[str, Any]):
             
         else:
             print("⚠ No se pudieron obtener mensajes de la API")
-            print("Mostrando historial local:")
-            local_messages = message_store.get_messages(remote_jid, limit=5)
-            
-            for idx, msg in enumerate(local_messages, 1):
-                msg_key = msg.get("key", {})
-                msg_content = msg.get("message", {})
-                msg_text = extract_message_text(msg_content)
-                sender = "Tú" if msg.get("fromMe") else msg.get("pushName", "Cliente")
-                print(f"{idx}. [{sender}] {msg_text}")
-            
-            # Procesar con OpenAI usando historial local si el mensaje no es de nosotros
+            print("Procesando con historial desde Redis (si existe)...")
+
+            # Procesar con OpenAI si el mensaje no es de nosotros
             if not from_me:
-                # Preparar historial de conversación
-                conversation_history = []
-                for msg in local_messages[:-1]:  # Excluir el mensaje actual
-                    msg_content = msg.get("message", {})
-                    is_from_me_hist = msg.get("fromMe", False)
-                    msg_text = extract_message_text(msg_content)
-                    
-                    if msg_text and not msg_text.startswith("["):
-                        role = "assistant" if is_from_me_hist else "user"
-                        conversation_history.append({
-                            "role": role,
-                            "content": msg_text
-                        })
-                
                 # Extraer texto del mensaje actual
                 current_message_text = extract_message_text(message)
-                
+
                 # Solo procesar si el mensaje tiene texto válido
                 if current_message_text and not current_message_text.startswith("["):
-                    print(f"\n🚀 Enviando mensaje a OpenAI para procesamiento (historial local)...")
-                    
-                    # Procesar con OpenAI
+                    print(f"\n🚀 Enviando mensaje a OpenAI para procesamiento...")
+
+                    # Procesar con OpenAI (el historial viene de Redis)
                     response_text = await process_message_with_openai(
-                        conversation_history=conversation_history,
                         user_message=current_message_text,
                         remote_jid=remote_jid
                     )
-                    
+
                     # Enviar respuesta por WhatsApp
                     print(f"\n📤 Enviando respuesta por WhatsApp...")
                     success = await send_whatsapp_message(remote_jid, response_text)
-                    
+
                     if success:
                         print(f"✓ Conversación completada exitosamente")
                     else:
@@ -1608,21 +1499,6 @@ async def get_messages_endpoint(
     
     return data
 
-@app.get("/chats")
-async def list_chats():
-    """Lista todos los chats en memoria local"""
-    chats = []
-    for jid, messages in message_store.messages.items():
-        last_message = messages[-1] if messages else {}
-        chats.append({
-            "remoteJid": jid,
-            "pushName": last_message.get("pushName", "Desconocido"),
-            "messageCount": len(messages),
-            "lastMessage": extract_message_text(last_message.get("message", {})),
-            "lastTimestamp": last_message.get("messageTimestamp")
-        })
-    
-    return {"chats": chats, "total": len(chats)}
 
 @app.get("/")
 async def root():
@@ -1630,10 +1506,8 @@ async def root():
         "status": "active",
         "webhook_url": "/webhook/evolution",
         "endpoints": {
-            "messages": "/messages/{remote_jid}",
-            "chats": "/chats"
-        },
-        "chats_in_memory": len(message_store.messages)
+            "messages": "/messages/{remote_jid}"
+        }
     }
 
 
