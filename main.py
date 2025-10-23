@@ -1238,36 +1238,49 @@ async def process_message_with_openai(user_message: str, remote_jid: str) -> str
 @app.post("/webhook/evolution")
 async def evolution_webhook(request: Request, payload: WebhookPayload):
     try:
-        print(f"Evento recibido: {payload.event}")
-        
+        print(f"\n{'🔔'*25}")
+        print(f"📨 Evento recibido: {payload.event}")
+        print(f"{'🔔'*25}\n")
+
         if payload.event == "messages.upsert":
             await handle_message(payload.data)
-        
+
         elif payload.event == "connection.update":
             await handle_connection_update(payload.data)
-        
+
         return {"status": "success", "message": "Webhook procesado"}
-    
+
     except Exception as e:
-        print(f"Error procesando webhook: {e}")
+        print(f"\n{'❌'*25}")
+        print(f"❌ Error crítico en webhook: {e}")
+        print(f"{'❌'*25}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+
+        # NO lanzar HTTPException, solo retornar 200 para que Evolution API no se queje
+        # El error ya está logueado
+        return {"status": "error", "message": str(e)}
 
 async def handle_message(data: Dict[str, Any]):
     """Procesa mensajes recibidos y mantiene historial"""
     try:
+        print("📥 Iniciando handle_message...")
+
         message = data.get("message", {})
         key = data.get("key", {})
-        
+
         remote_jid = key.get("remoteJid")
         from_me = key.get("fromMe", False)
         message_timestamp = data.get("messageTimestamp", int(datetime.now().timestamp()))
         push_name = data.get("pushName", "Desconocido")
 
+        print(f"   remote_jid: {remote_jid}")
+        print(f"   from_me: {from_me}")
+        print(f"   push_name: {push_name}")
+
         # Extraer el texto del mensaje actual
         text = extract_message_text(message)
-        
+
         print(f"\n{'='*50}")
         print(f"Nuevo mensaje de {push_name} ({remote_jid})")
         print(f"Mensaje: {text}")
@@ -1387,10 +1400,13 @@ async def handle_message(data: Dict[str, Any]):
                 print(f"⚠️ Mensaje enviado por nosotros, no se responderá")
             
     except Exception as e:
-        print(f"Error en handle_message: {e}")
+        print(f"\n{'⚠️'*25}")
+        print(f"⚠️ Error en handle_message: {e}")
+        print(f"{'⚠️'*25}")
         import traceback
         traceback.print_exc()
-        raise
+        # NO propagar el error, solo loguearlo
+        # Esto evita que el webhook retorne 500
 
 def extract_message_text(message_content) -> str:
     """Extrae el texto de diferentes tipos de mensajes"""
