@@ -1326,8 +1326,8 @@ async def handle_message(data: Dict[str, Any]):
                     sender_name = "Asistente (Juliana)" if is_from_me else m.get("pushName", "Cliente")
                     text = extract_message_text(msg_content)
                     context_lines.append(f"{sender_name}: {text}")
-            co
-            ntext = "\n".join(context_lines)
+
+            context = "\n".join(context_lines)
             print(f"\n📝 Contexto de la conversación:\n{'-'*50}")
             print(context)
             print(f"{'-'*50}\n")
