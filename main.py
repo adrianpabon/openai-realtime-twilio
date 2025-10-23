@@ -1238,28 +1238,21 @@ async def process_message_with_openai(user_message: str, remote_jid: str) -> str
 @app.post("/webhook/evolution")
 async def evolution_webhook(request: Request, payload: WebhookPayload):
     try:
-        print(f"\n{'🔔'*25}")
-        print(f"📨 Evento recibido: {payload.event}")
-        print(f"{'🔔'*25}\n")
-
+        print(f"Evento recibido: {payload.event}")
+        
         if payload.event == "messages.upsert":
             await handle_message(payload.data)
-
+        
         elif payload.event == "connection.update":
             await handle_connection_update(payload.data)
-
+        
         return {"status": "success", "message": "Webhook procesado"}
-
+    
     except Exception as e:
-        print(f"\n{'❌'*25}")
-        print(f"❌ Error crítico en webhook: {e}")
-        print(f"{'❌'*25}")
+        print(f"Error procesando webhook: {e}")
         import traceback
         traceback.print_exc()
-
-        # NO lanzar HTTPException, solo retornar 200 para que Evolution API no se queje
-        # El error ya está logueado
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 async def handle_message(data: Dict[str, Any]):
     """Procesa mensajes recibidos y mantiene historial"""
