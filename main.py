@@ -1217,9 +1217,15 @@ async def process_message_with_openai(user_message: str, remote_jid: str) -> str
             # No hay function calls, usar la respuesta directa
             final_message = response_message.content
 
-        # 4. Guardar conversación actualizada en Redis
+        # 4. Agregar la respuesta final del asistente a messages
+        messages.append({
+            "role": "assistant",
+            "content": final_message
+        })
+
+        # 5. Guardar conversación actualizada en Redis
         # Guardamos messages[1:] que es toda la conversación sin el system prompt
-        # Esto incluye: user, assistant, tool_calls, tool responses
+        # Esto incluye: user, assistant (con respuestas completas), tool_calls, tool responses
         conversation_to_save = messages[1:]  # Excluir system prompt (índice 0)
 
         conversation_cache.save_conversation(remote_jid, conversation_to_save)
