@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from realtime_config import choose_random_assistant, response_create
+from realtime_config import choose_random_assistant
 from whatsapp_config import get_whatsapp_prompt
 import os
 from dotenv import load_dotenv
@@ -184,7 +184,7 @@ async def handle_websocket_message(message_data: dict, ws, function_manager: Fun
         print(f"📨 Unhandled message type: {message_type}")
 
 # Tarea WebSocket mejorada
-async def websocket_task_async(call_id: str) -> None:
+async def websocket_task_async(call_id: str, response_create: dict) -> None:
     """Conecta al WebSocket de OpenAI Realtime API"""
     uri = f"wss://api.openai.com/v1/realtime?call_id={call_id}"
     
@@ -266,7 +266,7 @@ async def webhook(request: Request):
             
             # Aceptar la llamada
             async with httpx.AsyncClient() as http_client:
-                call_accept = choose_random_assistant()
+                call_accept, response_create = choose_random_assistant()
                 accept_url = f"https://api.openai.com/v1/realtime/calls/{call_id}/accept"
                 
                 resp = await http_client.post(
@@ -285,7 +285,7 @@ async def webhook(request: Request):
             
             # Conectar WebSocket después de un pequeño delay
             threading.Thread(
-                target=lambda: asyncio.run(websocket_task_async(call_id)),
+                target=lambda: asyncio.run(websocket_task_async(call_id, response_create)),
                 daemon=True,
                 name=f"ws_thread_{call_id}"
             ).start()
