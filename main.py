@@ -70,7 +70,7 @@ REALTIME_INCOMING_CALL = "realtime.call.incoming"
 
 
 # Manejadores de eventos WebSocket
-async def handle_websocket_message(message_data: dict, ws, function_manager: FunctionManager ) -> None:
+async def handle_websocket_message(message_data: dict, ws, function_manager: FunctionManager, total_token_used_in_call: int) -> None:
     """Maneja diferentes tipos de mensajes del WebSocket"""
     message_type = message_data.get("type", "")
 
@@ -94,7 +94,10 @@ async def handle_websocket_message(message_data: dict, ws, function_manager: Fun
 
         output_items = message_data.get("response", {}).get("output", [])
         has_function_calls = False
-
+        total_token_used = message_data.get("response", {}).get("usage", {}).get("total_tokens", 0)
+        print(f"🧮 Total tokens used in response: {total_token_used}")
+        total_token_used_in_call += total_token_used
+        print(f"🧾 Total tokens used in call so far: {total_token_used_in_call}")
         if output_items:
             for item in output_items:
                 if item.get("type") == "function_call":
@@ -190,6 +193,7 @@ async def websocket_task_async(call_id: str, response_create: dict) -> None:
     
     try:
         function_manager = FunctionManager()
+        total_token_used_in_call = 0
         
         # 🔴 INICIAR GRABACIÓN
         call_recorder.start_recording(call_id)
@@ -211,7 +215,7 @@ async def websocket_task_async(call_id: str, response_create: dict) -> None:
                     text = message if isinstance(message, str) else message.decode()
                     message_data = json.loads(text)
                     
-                    await handle_websocket_message(message_data, ws, function_manager)
+                    await handle_websocket_message(message_data, ws, function_manager, total_token_used_in_call)
                     
                 except json.JSONDecodeError as e:
                     print(f"⚠️ Failed to parse JSON message: {text}")
