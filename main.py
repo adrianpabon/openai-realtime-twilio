@@ -95,6 +95,7 @@ async def handle_websocket_message(message_data: dict, ws, function_manager: Fun
         output_items = message_data.get("response", {}).get("output", [])
         has_function_calls = False
         total_token_used = message_data.get("response", {}).get("usage", {}).get("total_tokens", 0)
+        print("Usage details:", message_data.get("response", {}).get("usage", {}))
         print(f"🧮 Total tokens used in response: {total_token_used}")
         total_token_used_in_call += total_token_used
         print(f"🧾 Total tokens used in call so far: {total_token_used_in_call}")
