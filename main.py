@@ -241,39 +241,38 @@ async def websocket_task_async(call_id: str, response_create: dict) -> None:
 @app.post("/webhook/call")
 async def webhook(request: Request):
     """Maneja los webhooks de OpenAI"""
-    
-    # ✅ LOG INMEDIATO
-    print("=" * 60)
-    print("🔔 WEBHOOK RECEIVED")
-    print(f"📍 Path: {request.url.path}")
-    print("=" * 60)
-    
     try:
+       
         body = await request.body()
         headers = dict(request.headers)
         
-        print(f"📦 Body length: {len(body)}")
-        print(f"📦 Body preview: {body[:200]}")
         
-        # ✅ Pasar bytes directamente
-        event = client.webhooks.unwrap(body, headers)
+        event = client.webhooks.unwrap(
+            body.decode("utf-8"),
+            headers,
+        )
         
-        print(f"✅ Signature validated")
+        event_type = getattr(event, "type", None)
         
-        # ✅ Acceso directo (como OpenAI)
-        if event.type == REALTIME_INCOMING_CALL:
-            call_id = event.data.call_id
-            sip_headers = event.data.sip_headers
+        
+        if event_type == REALTIME_INCOMING_CALL:
+            call_id = getattr(getattr(event, "data", None), "call_id", None)
+
+            sip_headers = getattr(getattr(event, "data", None), "sip_headers", None)
+
+            print(f"sip_headers: {sip_headers}")
+
+            print(f"webhook received: {event_type}")
             
-            print(f"📞 Call ID: {call_id}")
-            print(f"📋 SIP Headers: {sip_headers}")
+            if not call_id:
+                raise HTTPException(status_code=400, detail="Missing call_id")
             
-            # Aceptar llamada
+            print(f"Incoming call: {call_id}")
+            
+            
             async with httpx.AsyncClient() as http_client:
                 call_accept, response_create = choose_random_assistant()
                 accept_url = f"https://api.openai.com/v1/realtime/calls/{call_id}/accept"
-                
-                print(f"📤 Accepting call: {accept_url}")
                 
                 resp = await http_client.post(
                     accept_url,
@@ -281,57 +280,47 @@ async def webhook(request: Request):
                         "Authorization": f"Bearer {OPENAI_API_KEY}",
                         "Content-Type": "application/json"
                     },
-                    json=call_accept,
-                    timeout=10.0
+                    json=call_accept
                 )
                 
                 if not resp.is_success:
-                    print(f"❌ ACCEPT failed: {resp.status_code}")
-                    print(f"❌ Error: {resp.text}")
+                    error_text = resp.text
+                    print(f"ACCEPT failed: {resp.status_code} {error_text}")
                     raise HTTPException(status_code=500, detail="Accept failed")
             
-            print(f"✅ Call accepted")
-            
-            # Iniciar WebSocket
-            print(f"🚀 Starting WebSocket thread")
+           
             threading.Thread(
                 target=lambda: asyncio.run(websocket_task_async(call_id, response_create)),
                 daemon=True,
                 name=f"ws_thread_{call_id}"
             ).start()
             
-            print(f"✅ Returning 200 OK")
-            return Response(status_code=200)
+            
+            return Response(
+                status_code=200,
+                headers={"Authorization": f"Bearer {OPENAI_API_KEY}"}
+            )
         
-        print(f"ℹ️ Event type not handled: {event.type}")
-        return Response(status_code=200)
     
+        return Response(status_code=200)
+        
     except Exception as e:
-        error_type = type(e).__name__
-        error_msg = str(e)
+        error_msg = str(getattr(e, "message", str(e)))
+        print(f"Error processing webhook: {error_msg}")
         
-        print(f"💥 EXCEPTION TYPE: {error_type}")
-        print(f"💥 MESSAGE: {error_msg}")
+        if "InvalidWebhookSignatureError" in str(type(e).__name__) or \
+           "invalid" in error_msg.lower():
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Invalid signature"}
+            )
         
-        # ✅ Traceback completo
-        import traceback
-        print("💥 FULL TRACEBACK:")
-        traceback.print_exc()
-        
-        # ✅ Manejar InvalidWebhookSignatureError por nombre
-        if "InvalidWebhookSignatureError" in error_type:
-            print(f"❌ Invalid webhook signature detected")
-            return Response("Invalid signature", status_code=400)
-        
-        # Otros errores
+        print(f"Server error: {error_msg}")
         return JSONResponse(
             status_code=500,
-            content={
-                "error": "Server error",
-                "type": error_type,
-                "message": error_msg
-            }
+            content={"error": "Server error"}
         )
+
 
 @app.get("/health")
 async def health():
