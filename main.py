@@ -237,16 +237,16 @@ async def websocket_task_async(call_id: str, response_create: dict) -> None:
 
 
 
-# Endpoint principal para webhooks
+
 @app.post("/webhook/call")
 async def webhook(request: Request):
     """Maneja los webhooks de OpenAI"""
     try:
-        # Leer el body raw
+       
         body = await request.body()
         headers = dict(request.headers)
         
-        # Verificar y decodificar el webhook
+        
         event = client.webhooks.unwrap(
             body.decode("utf-8"),
             headers,
@@ -254,7 +254,7 @@ async def webhook(request: Request):
         
         event_type = getattr(event, "type", None)
         
-        # Manejar llamada entrante
+        
         if event_type == REALTIME_INCOMING_CALL:
             call_id = getattr(getattr(event, "data", None), "call_id", None)
 
@@ -269,7 +269,7 @@ async def webhook(request: Request):
             
             print(f"Incoming call: {call_id}")
             
-            # Aceptar la llamada
+            
             async with httpx.AsyncClient() as http_client:
                 call_accept, response_create = choose_random_assistant()
                 accept_url = f"https://api.openai.com/v1/realtime/calls/{call_id}/accept"
@@ -288,26 +288,26 @@ async def webhook(request: Request):
                     print(f"ACCEPT failed: {resp.status_code} {error_text}")
                     raise HTTPException(status_code=500, detail="Accept failed")
             
-            # Conectar WebSocket después de un pequeño delay
+           
             threading.Thread(
                 target=lambda: asyncio.run(websocket_task_async(call_id, response_create)),
                 daemon=True,
                 name=f"ws_thread_{call_id}"
             ).start()
             
-            # Responder al webhook
+            
             return Response(
                 status_code=200,
                 headers={"Authorization": f"Bearer {OPENAI_API_KEY}"}
             )
         
-        # # Otros tipos de eventos
+    
         return Response(status_code=200)
         
     except Exception as e:
         error_msg = str(getattr(e, "message", str(e)))
         print(f"Error processing webhook: {error_msg}")
-        # Verificar si es error de firma inválida
+        
         if "InvalidWebhookSignatureError" in str(type(e).__name__) or \
            "invalid" in error_msg.lower():
             return JSONResponse(
